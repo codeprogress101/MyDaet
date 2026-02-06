@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 
-class QuickTile extends StatelessWidget {
-  final IconData icon;
+class LatestCard extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String body;
   final VoidCallback onTap;
 
-  const QuickTile({
+  const LatestCard({
     super.key,
-    required this.icon,
     required this.title,
-    required this.subtitle,
+    required this.body,
     required this.onTap,
   });
 
@@ -27,32 +25,20 @@ class QuickTile extends StatelessWidget {
           border: Border.all(color: cs.outlineVariant.withOpacity(0.6)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: cs.onPrimaryContainer),
-              ),
+              Icon(Icons.info_outline, color: cs.primary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(color: cs.onSurfaceVariant),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    const SizedBox(height: 6),
+                    Text(body, style: TextStyle(color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 10),
+                    Text('View all announcements →', style: TextStyle(color: cs.primary)),
                   ],
                 ),
               )
