@@ -1,19 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
+  <style>
+  body {
+    margin: 0;
+    background: #0b5ed7;
+    font-family: Arial, sans-serif;
+  }
 
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
+  #welcome {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+  }
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+  #welcome img {
+    width: 300px;
+    margin-bottom: 16px;
+  }
 
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  #welcome h1 {
+    margin: 0;
+    font-size: 2.2rem;
+  }
+
+  #welcome p {
+    margin-top: 8px;
+    opacity: 0.9;
+  }
+</style>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -33,6 +52,29 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- SIMPLE WELCOME SCREEN -->
+  <div id="welcome">
+    <img src="/assets/images/mydaet_logo_dark.png" alt="MyDaet Logo" />
+    <h1>Welcome to MyDaet</h1>
+    <p>Connecting citizens. Building better communities.</p>
+  </div>
+
+  <!-- Flutter app loads here -->
+  <script src="flutter.js" defer></script>
+  <script>
+    window.addEventListener('load', function () {
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: null,
+        },
+        onEntrypointLoaded: function (engineInitializer) {
+          engineInitializer.initializeEngine().then(function (appRunner) {
+            appRunner.runApp();
+          });
+        },
+      });
+    });
+  </script>
 </body>
+
 </html>
