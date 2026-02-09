@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "622631828696",
+    "project_id": "mydaet",
+    "storage_bucket": "mydaet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622631828696:android:889fbed0792af9532d2bad",
+        "android_client_info": {
+          "package_name": "com.example.mydaet"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "622631828696-dpbjff68uk3df80pgnvvu4gc9pvo6hkl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mydaet",
+            "certificate_hash": "6e1498a07ce6a00c81fe499c3a19d8960c0936c3"
+          }
+        },
+        {
+          "client_id": "622631828696-tces7uapicop7f9v3naf4iislbbdmvn4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgqnEcwRfo3egs7KTE99tI4yWSyqDV7Zw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "622631828696-tces7uapicop7f9v3naf4iislbbdmvn4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "622631828696-53165gdu2g1csbc2tq31ch0ckje70rji.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mydaet"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
