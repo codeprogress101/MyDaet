@@ -37,7 +37,7 @@ class _ModeratorAdvertisementsScreenState
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _filter,
+                    initialValue: _filter,
                     decoration: const InputDecoration(
                       labelText: 'Filter status',
                       border: OutlineInputBorder(),

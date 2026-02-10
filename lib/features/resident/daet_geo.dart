@@ -25,7 +25,7 @@ bool isWithinDaet(double lat, double lng) {
 }
 
 LatLng clampToDaet(LatLng point) {
-  final lat = point.latitude.clamp(daetMinLat, daetMaxLat) as double;
-  final lng = point.longitude.clamp(daetMinLng, daetMaxLng) as double;
+  final lat = point.latitude.clamp(daetMinLat, daetMaxLat);
+  final lng = point.longitude.clamp(daetMinLng, daetMaxLng);
   return LatLng(lat, lng);
 }

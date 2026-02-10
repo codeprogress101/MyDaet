@@ -452,7 +452,7 @@ class _ModeratorReportDetailScreenState extends State<ModeratorReportDetailScree
                 const SizedBox(height: 8),
                 _card(context,
                   child: DropdownButtonFormField<String>(
-                    value: ReportStatusHelper.normalize(_status),
+                    initialValue: ReportStatusHelper.normalize(_status),
                     decoration: inputDecoration("Status"),
                     items: ReportStatusHelper.values
                         .map(
@@ -1162,7 +1162,7 @@ int? _int(dynamic value) {
 
 String _formatBytes(int? bytes) {
   if (bytes == null) return "Unknown size";
-  if (bytes < 1024) return "${bytes} B";
+  if (bytes < 1024) return "$bytes B";
   final kb = bytes / 1024;
   if (kb < 1024) return "${kb.toStringAsFixed(1)} KB";
   final mb = kb / 1024;

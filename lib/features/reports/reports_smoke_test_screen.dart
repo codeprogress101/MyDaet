@@ -196,7 +196,7 @@ class _ReportsSmokeTestScreenState extends State<ReportsSmokeTestScreen> {
                         if (!selectedExists) _selectedModeratorUid = null;
 
                         return DropdownButtonFormField<String>(
-                          value: _selectedModeratorUid,
+                          initialValue: _selectedModeratorUid,
                           items: items,
                           onChanged: (v) =>
                               setState(() => _selectedModeratorUid = v),
@@ -221,7 +221,7 @@ class _ReportsSmokeTestScreenState extends State<ReportsSmokeTestScreen> {
 
                     // ✅ Status dropdown
                     DropdownButtonFormField<String>(
-                      value: _selectedStatus,
+                      initialValue: _selectedStatus,
                       items: _statusOptions
                           .map((s) =>
                               DropdownMenuItem(value: s, child: Text(s)))

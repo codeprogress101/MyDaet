@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/ads_service.dart';
 import '../shared/widgets/network_video_player.dart';
+import '../shared/widgets/search_field.dart';
 
 class AdvertisementsScreen extends StatefulWidget {
   const AdvertisementsScreen({super.key});
@@ -70,8 +71,9 @@ class _AdvertisementsScreenState extends State<AdvertisementsScreen> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _SearchBar(
+                  SearchField(
                     controller: _searchController,
+                    hintText: 'Search advertisements...',
                     onChanged: (v) => setState(() => _query = v),
                   ),
                   const SizedBox(height: 16),
@@ -94,8 +96,9 @@ class _AdvertisementsScreenState extends State<AdvertisementsScreen> {
                   i == 0 ? const SizedBox(height: 16) : const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 if (i == 0) {
-                  return _SearchBar(
+                  return SearchField(
                     controller: _searchController,
+                    hintText: 'Search advertisements...',
                     onChanged: (v) => setState(() => _query = v),
                   );
                 }
@@ -399,43 +402,6 @@ class AdvertisementDetailScreen extends StatelessWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final border = Theme.of(context).dividerColor;
-    const accent = Color(0xFFE46B2C);
-
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: 'Search advertisements...',
-        prefixIcon: const Icon(Icons.search),
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: accent, width: 1.3),
-        ),
-      ),
-    );
-  }
-}
 
 class _PostHeader extends StatelessWidget {
   const _PostHeader({required this.title, required this.meta});

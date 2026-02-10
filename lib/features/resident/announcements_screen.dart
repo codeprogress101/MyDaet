@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/announcements_service.dart';
+import '../shared/widgets/search_field.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
-  const AnnouncementsScreen({super.key});
+  const AnnouncementsScreen({super.key, this.initialQuery});
+
+  final String? initialQuery;
 
   @override
   State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
@@ -25,6 +28,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     'Event',
     'Notice',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery?.trim();
+    if (initial != null && initial.isNotEmpty) {
+      _query = initial;
+      _searchController.text = initial;
+    }
+  }
 
   @override
   void dispose() {
@@ -103,8 +116,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 final filters = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SearchBar(
+                    SearchField(
                       controller: _searchController,
+                      hintText: 'Search announcements...',
                       onChanged: (v) => setState(() => _query = v),
                     ),
                     const SizedBox(height: 12),
@@ -624,40 +638,3 @@ class _NewBadge extends StatelessWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final border = Theme.of(context).dividerColor;
-    const accent = Color(0xFFE46B2C);
-
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: 'Search announcements...',
-        prefixIcon: const Icon(Icons.search),
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: accent, width: 1.3),
-        ),
-      ),
-    );
-  }
-}

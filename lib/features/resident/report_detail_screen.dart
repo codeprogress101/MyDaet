@@ -953,7 +953,7 @@ String _formatDateTime(DateTime dt) {
 
 String _formatBytes(int? bytes) {
   if (bytes == null) return 'Unknown size';
-  if (bytes < 1024) return '${bytes} B';
+  if (bytes < 1024) return '$bytes B';
   final kb = bytes / 1024;
   if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
   final mb = kb / 1024;

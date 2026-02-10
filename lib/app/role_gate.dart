@@ -3,8 +3,6 @@ import 'package:mydaet/features/admin/admin_shell.dart';
 import 'package:mydaet/features/moderator/moderator_shell.dart';
 
 import '../services/claims_service.dart';
-import '../features/admin/admin_dashboard_screen.dart';
-import '../features/moderator/moderator_dashboard_screen.dart';
 
 import '../features/resident/resident_shell.dart';
 

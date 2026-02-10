@@ -213,7 +213,7 @@ class _AdminAdvertisementEditorScreenState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _status,
+              initialValue: _status,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 border: OutlineInputBorder(),
@@ -226,7 +226,7 @@ class _AdminAdvertisementEditorScreenState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _mediaType,
+              initialValue: _mediaType,
               decoration: const InputDecoration(
                 labelText: 'Media Type',
                 border: OutlineInputBorder(),

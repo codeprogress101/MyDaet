@@ -5,16 +5,38 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../shared/widgets/app_scaffold.dart';
 import '../shared/widgets/empty_state.dart';
+import '../shared/widgets/search_field.dart';
 import 'report_detail_screen.dart';
 
 class MyReportsScreen extends StatefulWidget {
-  const MyReportsScreen({super.key});
+  const MyReportsScreen({super.key, this.initialQuery});
+
+  final String? initialQuery;
 
   @override
   State<MyReportsScreen> createState() => _MyReportsScreenState();
 }
 
 class _MyReportsScreenState extends State<MyReportsScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery?.trim();
+    if (initial != null && initial.isNotEmpty) {
+      _query = initial;
+      _searchController.text = initial;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _retry() => setState(() {});
 
   @override
@@ -23,6 +45,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
     final dark = Theme.of(context).colorScheme.onSurface;
+    final border = Theme.of(context).dividerColor;
     final user = FirebaseAuth.instance.currentUser;
 
     return Theme(
@@ -79,50 +102,88 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                     return bdt.compareTo(adt);
                   });
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemBuilder: (_, i) {
-                      if (i == 0 && isOffline) {
-                        return _OfflineBanner(textTheme: textTheme);
-                      }
+                  final q = _query.trim().toLowerCase();
+                  final filteredDocs = q.isEmpty
+                      ? docs
+                      : docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final title =
+                              (data['title'] ?? '').toString().toLowerCase();
+                          final status =
+                              (data['status'] ?? '').toString().toLowerCase();
+                          return title.contains(q) || status.contains(q);
+                        }).toList();
 
-                      final dataIndex = isOffline ? i - 1 : i;
-                      final data = docs[dataIndex].data() as Map<String, dynamic>;
-                      final title =
-                          (data['title'] as String?)?.trim().isNotEmpty == true
-                              ? data['title'] as String
-                              : 'Untitled report';
-                      final status =
-                          (data['status'] as String?)?.trim().isNotEmpty == true
-                              ? data['status'] as String
-                              : 'submitted';
-                      return Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: const BorderSide(color: Color(0xFFE5E0DA)),
-                        ),
-                        child: ListTile(
-                          leading:
-                              const Icon(Icons.assignment_outlined, color: accent),
-                          title: Text(title),
-                          subtitle: Text('Status: $status'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ReportDetailScreen(
-                                  reportId: docs[dataIndex].id,
-                                  initialData: data,
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      SearchField(
+                        controller: _searchController,
+                        hintText: 'Search reports...',
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                      const SizedBox(height: 12),
+                      if (isOffline) ...[
+                        _OfflineBanner(textTheme: textTheme),
+                        const SizedBox(height: 8),
+                      ],
+                      if (filteredDocs.isEmpty)
+                        Text(
+                          'No reports match "$q".',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: dark.withOpacity(0.6),
+                          ),
+                        )
+                      else
+                        for (var i = 0; i < filteredDocs.length; i++) ...[
+                          Builder(
+                            builder: (context) {
+                              final doc = filteredDocs[i];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final title =
+                                  (data['title'] as String?)?.trim().isNotEmpty ==
+                                          true
+                                      ? data['title'] as String
+                                      : 'Untitled report';
+                              final status =
+                                  (data['status'] as String?)?.trim().isNotEmpty ==
+                                          true
+                                      ? data['status'] as String
+                                      : 'submitted';
+                              return Card(
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(
+                                    color: Color(0xFFE5E0DA),
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemCount: docs.length + (isOffline ? 1 : 0),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.assignment_outlined,
+                                    color: accent,
+                                  ),
+                                  title: Text(title),
+                                  subtitle: Text('Status: $status'),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ReportDetailScreen(
+                                          reportId: doc.id,
+                                          initialData: data,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          if (i != filteredDocs.length - 1)
+                            const SizedBox(height: 8),
+                        ],
+                    ],
                   );
                 },
               ),

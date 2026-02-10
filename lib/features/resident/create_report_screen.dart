@@ -294,7 +294,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             DropdownButtonFormField<String>(
-              value: _category,
+              initialValue: _category,
               items: _categories
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),

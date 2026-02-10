@@ -68,7 +68,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             ),
             onPositionChanged: (pos, hasGesture) {
               final c = pos.center;
-              if (c == null) return;
               setState(() => _center = clampToDaet(c));
             },
           ),
