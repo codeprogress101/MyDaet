@@ -8,6 +8,7 @@ import '../features/admin/admin_report_detail_screen.dart';
 import '../features/moderator/moderator_report_detail_screen.dart';
 import '../features/resident/announcements_screen.dart';
 import '../features/resident/report_detail_screen.dart';
+import 'permissions.dart';
 
 class NotificationService {
   NotificationService._();
@@ -23,8 +24,18 @@ class NotificationService {
   static String? _pendingAnnouncementId;
 
   static Future<void> init() async {
-    await _requestPermission();
-    _cachedToken = await _messaging.getToken();
+    try {
+      await _requestPermission();
+    } catch (e) {
+      debugPrint('NotificationService: permission request failed: $e');
+    }
+
+    try {
+      _cachedToken = await _messaging.getToken();
+    } catch (e) {
+      debugPrint('NotificationService: failed to get FCM token: $e');
+    }
+
     await _saveToken(_cachedToken);
 
     FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
@@ -107,20 +118,24 @@ class NotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('fcmTokens')
-        .doc(token)
-        .set(
-      {
-        'token': token,
-        'platform': defaultTargetPlatform.name,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('fcmTokens')
+          .doc(token)
+          .set(
+        {
+          'token': token,
+          'platform': defaultTargetPlatform.name,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      debugPrint('NotificationService: failed to save FCM token: $e');
+    }
   }
 
   static Future<void> _handleMessage(RemoteMessage message) async {
@@ -164,17 +179,15 @@ class NotificationService {
       return;
     }
 
-    String role = 'resident';
+    String role = AppRole.resident;
     try {
       final token = await user.getIdTokenResult();
       final claimRole = token.claims?['role'];
-      if (claimRole is String && claimRole.isNotEmpty) {
-        role = claimRole;
-      }
+      role = AppRole.normalize(claimRole is String ? claimRole : null);
     } catch (_) {}
 
     Widget screen;
-    if (role == 'admin' || role == 'super_admin') {
+    if (role == AppRole.superAdmin || role == AppRole.officeAdmin) {
       screen = AdminReportDetailScreen(reportId: reportId);
     } else if (role == 'moderator') {
       screen = ModeratorReportDetailScreen(reportId: reportId);

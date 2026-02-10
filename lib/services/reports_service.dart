@@ -27,6 +27,7 @@ class ReportsService {
       'createdByEmail': _email,
       'assignedToUid': null,
       'assignedToEmail': null,
+      // TODO: Add officeId when reports become office-scoped.
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });

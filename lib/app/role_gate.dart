@@ -3,6 +3,7 @@ import 'package:mydaet/features/admin/admin_shell.dart';
 import 'package:mydaet/features/moderator/moderator_shell.dart';
 
 import '../services/claims_service.dart';
+import '../services/permissions.dart';
 
 import '../features/resident/resident_shell.dart';
 
@@ -30,7 +31,7 @@ class _RoleGateState extends State<RoleGate> {
       final role = await _claimsService.getMyRole();
       if (!mounted) return;
       setState(() {
-        _role = role;
+        _role = AppRole.normalize(role);
         _loading = false;
       });
     } catch (_) {
@@ -52,7 +53,7 @@ class _RoleGateState extends State<RoleGate> {
 
     switch (_role) {
       case 'super_admin':
-      case 'admin':
+      case 'office_admin':
         return const AdminShell();
       case 'moderator':
         return const ModeratorShell();

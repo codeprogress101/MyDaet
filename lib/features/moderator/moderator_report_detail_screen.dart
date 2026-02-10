@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../shared/report_status.dart';
 import '../shared/report_location_screen.dart';
+import '../../services/permissions.dart';
 
 class ModeratorReportDetailScreen extends StatefulWidget {
   const ModeratorReportDetailScreen({super.key, required this.reportId});
@@ -85,7 +86,7 @@ class _ModeratorReportDetailScreenState extends State<ModeratorReportDetailScree
     try {
       final token = await user.getIdTokenResult();
       final role = token.claims?["role"];
-      if (role is String && role.isNotEmpty) return role;
+      return AppRole.normalize(role is String ? role : null);
     } catch (_) {}
     return "resident";
   }

@@ -12,6 +12,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'daet_geo.dart';
 import 'location_picker_screen.dart';
 import 'picked_location.dart';
+import '../../models/office.dart';
+import '../shared/widgets/search_field.dart';
 
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
@@ -24,6 +26,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   final _title = TextEditingController();
   final _desc = TextEditingController();
   final _contact = TextEditingController();
+  final _officeController = TextEditingController();
+  // office selection state
 
   final _categories = const [
     'Solid Waste',
@@ -42,6 +46,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   double? _lng;
   String? _address;
 
+  List<Office> _offices = [];
+  bool _loadingOffices = true;
+  String? _selectedOfficeId;
+  String? _selectedOfficeName;
+  bool _officeManuallySelected = false;
+  int _inactiveOfficeCount = 0;
+
   final List<PlatformFile> _files = [];
 
   @override
@@ -49,7 +60,277 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     _title.dispose();
     _desc.dispose();
     _contact.dispose();
+    _officeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOffices();
+  }
+
+  Future<void> _loadOffices() async {
+    setState(() => _loadingOffices = true);
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('offices')
+          .orderBy('name')
+          .get();
+      final all = snap.docs.map((d) => Office.fromDoc(d)).toList();
+      final active = all.where((o) => o.isActive).toList();
+      _inactiveOfficeCount = all.length - active.length;
+      setState(() {
+        _offices = active;
+        _loadingOffices = false;
+      });
+      _autoSelectOffice();
+    } catch (e) {
+      setState(() {
+        _offices = [];
+        _loadingOffices = false;
+        _status = 'Failed to load offices: $e';
+      });
+    }
+  }
+
+  void _autoSelectOffice() {
+    if (_officeManuallySelected) return;
+    if (_offices.isEmpty) return;
+
+    final preferredNames = _categoryOfficeMap[_category] ?? const [];
+    Office? match;
+    if (preferredNames.isNotEmpty) {
+      for (final name in preferredNames) {
+        match = _offices.firstWhere(
+          (o) => _normalize(o.name) == _normalize(name),
+          orElse: () => const Office(id: '', name: ''),
+        );
+        if (match.id.isNotEmpty) break;
+      }
+    }
+    if (match == null || match.id.isEmpty) {
+      match = _offices.first;
+    }
+
+    setState(() {
+      _selectedOfficeId = match!.id;
+      _selectedOfficeName = match.name;
+      _officeController.text = match.name;
+    });
+  }
+
+  Future<void> _openOfficePicker() async {
+    if (_loading || _loadingOffices || _offices.isEmpty) return;
+
+    final baseTheme = Theme.of(context);
+    final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
+    final dark = baseTheme.colorScheme.onSurface;
+    final border = baseTheme.dividerColor;
+    const accent = Color(0xFFE46B2C);
+
+    final selected = await showModalBottomSheet<Office>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: baseTheme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (context) {
+        String query = '';
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          minChildSize: 0.45,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                final filtered = query.trim().isEmpty
+                    ? _offices
+                    : _offices
+                        .where(
+                          (o) =>
+                              _normalize(o.name).contains(_normalize(query)),
+                        )
+                        .toList();
+
+                return SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      10,
+                      16,
+                      16 + MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: CustomScrollView(
+                      controller: scrollController,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              Container(
+                                height: 4,
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color: border,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Select office',
+                                      style: textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('Close'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SearchField(
+                                hintText: 'Search office',
+                                onChanged: (value) => setModalState(() {
+                                  query = value;
+                                }),
+                                prefixIcon: const Icon(Icons.search),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
+                        if (filtered.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: Text(
+                                'No offices found.',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: dark.withOpacity(0.6),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SliverList.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              final office = filtered[index];
+                              final isSelected =
+                                  office.id == _selectedOfficeId;
+                              return ListTile(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: BorderSide(color: border),
+                                ),
+                                tileColor: isSelected
+                                    ? accent.withOpacity(0.08)
+                                    : null,
+                                title: Text(
+                                  office.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(Icons.check_circle,
+                                        color: accent)
+                                    : const Icon(Icons.circle_outlined,
+                                        color: Colors.transparent),
+                                onTap: () =>
+                                    Navigator.of(context).pop(office),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        _selectedOfficeId = selected.id;
+        _selectedOfficeName = selected.name;
+        _officeController.text = selected.name;
+        _officeManuallySelected = true;
+      });
+    }
+  }
+
+  Widget _officePicker(
+    InputDecoration Function(String, IconData) inputDecoration,
+    TextTheme textTheme,
+    Color dark,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _officeController,
+          readOnly: true,
+          showCursor: false,
+          onTap: _openOfficePicker,
+          decoration: inputDecoration('Office', Icons.business_outlined).copyWith(
+            suffixIcon: const Icon(Icons.expand_more),
+            hintText: 'Select office',
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _officeManuallySelected
+              ? 'Office selected manually.'
+              : 'Auto-selected by category. You can change it.',
+          style: textTheme.bodySmall?.copyWith(
+            color: dark.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static const Map<String, List<String>> _categoryOfficeMap = {
+    'Solid Waste': [
+      'Municipal Environment and Natural Resources Office (MENRO)',
+      'General Services Office (GSO)',
+    ],
+    'Road/Traffic': [
+      'Public Safety and Traffic Management Unit (PSTMU)',
+      'Municipal Engineering Office',
+    ],
+    'Streetlight': [
+      'Municipal Engineering Office',
+      'General Services Office (GSO)',
+    ],
+    'Peace & Order': [
+      'Public Safety and Traffic Management Unit (PSTMU)',
+      "Mayor's Office",
+    ],
+    'Health': [
+      'Municipal Health Office (MHO)',
+    ],
+    'Others': [
+      "Mayor's Office",
+      "Municipal Administrator's Office",
+    ],
+  };
+
+  static String _normalize(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'\\s+'), ' ').trim();
   }
 
   Future<void> _pickFiles() async {
@@ -202,6 +483,24 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return;
     }
 
+    if (_selectedOfficeId == null || _selectedOfficeId!.trim().isEmpty) {
+      setState(() => _status = 'Please select an office.');
+      return;
+    }
+
+    String? officeName = _selectedOfficeName;
+    if (officeName == null || officeName.trim().isEmpty) {
+      try {
+        final match =
+            _offices.firstWhere((o) => o.id == _selectedOfficeId);
+        officeName = match.name;
+      } catch (_) {}
+    }
+    if (officeName == null || officeName.trim().isEmpty) {
+      setState(() => _status = 'Please select a valid office.');
+      return;
+    }
+
     setState(() {
       _loading = true;
       _status = 'Submitting report...';
@@ -220,6 +519,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         'title': _title.text.trim(),
         'description': _desc.text.trim(),
         'category': _category,
+        'officeId': _selectedOfficeId,
+        'officeName': officeName,
         'status': 'submitted',
         'createdByUid': user.uid,
         'createdByEmail': user.email,
@@ -300,9 +601,44 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   .toList(),
               onChanged: _loading
                   ? null
-                  : (v) => setState(() => _category = v ?? _category),
+                  : (v) {
+                      final next = v ?? _category;
+                      setState(() {
+                        _category = next;
+                      });
+                      _autoSelectOffice();
+                    },
               decoration: inputDecoration('Category', Icons.category_outlined),
             ),
+            const SizedBox(height: 12),
+            if (_loadingOffices)
+              const Center(child: CircularProgressIndicator())
+            else if (_offices.isEmpty)
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: border),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.business_outlined, color: accent),
+                  title: const Text('No active offices found'),
+                  subtitle: const Text(
+                    'Please contact admin to add/activate offices.',
+                  ),
+                ),
+              )
+            else
+              _officePicker(inputDecoration, textTheme, dark),
+            if (_inactiveOfficeCount > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Inactive offices are hidden (${_inactiveOfficeCount} inactive).',
+                style: textTheme.bodySmall?.copyWith(
+                  color: dark.withOpacity(0.6),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _title,

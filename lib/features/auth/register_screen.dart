@@ -62,6 +62,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           {
             'uid': user.uid,
             'role': 'resident',
+            'officeId': null,
+            'officeName': null,
+            'isActive': true,
             'displayName': name,
             'updatedAt': FieldValue.serverTimestamp(),
           },

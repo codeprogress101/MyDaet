@@ -1,6 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'permissions.dart';
+
 class ClaimsService {
   ClaimsService();
 
@@ -36,7 +38,6 @@ class ClaimsService {
     await forceRefreshToken();
     final claims = await getMyClaims();
     final role = claims['role'];
-    if (role is String && role.isNotEmpty) return role;
-    return 'resident';
+    return AppRole.normalize(role is String ? role : null);
   }
 }

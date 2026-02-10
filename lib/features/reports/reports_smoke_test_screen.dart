@@ -75,7 +75,7 @@ class _ReportsSmokeTestScreenState extends State<ReportsSmokeTestScreen> {
 
     final modsStream = FirebaseFirestore.instance
         .collection('users')
-        .where('role', whereIn: ['moderator', 'admin', 'super_admin'])
+        .where('role', whereIn: ['moderator', 'office_admin', 'super_admin', 'admin'])
         .limit(100)
         .snapshots();
 
@@ -202,7 +202,7 @@ class _ReportsSmokeTestScreenState extends State<ReportsSmokeTestScreen> {
                               setState(() => _selectedModeratorUid = v),
                           decoration: const InputDecoration(
                             labelText:
-                                'Assign to moderator/admin (by email)',
+                                'Assign to staff (by email)',
                             border: OutlineInputBorder(),
                           ),
                         );
@@ -213,7 +213,7 @@ class _ReportsSmokeTestScreenState extends State<ReportsSmokeTestScreen> {
                     ElevatedButton(
                       onPressed: _assign,
                       child: const Text(
-                        'Assign Report (admin/super_admin)',
+                        'Assign Report (super_admin/office_admin)',
                       ),
                     ),
 

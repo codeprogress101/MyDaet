@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_gate.dart';
@@ -10,10 +11,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await NotificationService.init();
   final themeController = ThemeController.instance;
   await themeController.load();
   runApp(MyApp(themeController: themeController));
+  NotificationService.init().catchError((error) {
+    debugPrint('NotificationService.init failed: $error');
+  });
   WidgetsBinding.instance.addPostFrameCallback((_) {
     NotificationService.drainPending();
   });

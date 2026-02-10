@@ -1,12 +1,28 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../resident/announcements_screen.dart';
 import 'admin_report_detail_screen.dart';
+import '../../services/permissions.dart';
+import '../../services/user_context_service.dart';
 
-class AdminAuditLogScreen extends StatelessWidget {
+class AdminAuditLogScreen extends StatefulWidget {
   const AdminAuditLogScreen({super.key});
+
+  @override
+  State<AdminAuditLogScreen> createState() => _AdminAuditLogScreenState();
+}
+
+class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
+  final _userContextService = UserContextService();
+  late final Future<UserContext?> _contextFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _contextFuture = _userContextService.getCurrent();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,111 +41,150 @@ class AdminAuditLogScreen extends StatelessWidget {
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: dark,
         ),
-        body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('audit_logs')
-              .orderBy('createdAt', descending: true)
-              .limit(100)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData) {
+        body: FutureBuilder<UserContext?>(
+          future: _contextFuture,
+          builder: (context, contextSnap) {
+            if (contextSnap.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
             }
-
-            final docs = snapshot.data!.docs;
-            if (docs.isEmpty) {
-              return const Center(child: Text('No audit logs yet.'));
+            if (contextSnap.hasError) {
+              return Center(child: Text('Error: ${contextSnap.error}'));
             }
 
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final data = docs[index].data();
-                final action = (data['action'] ?? '').toString();
-                final reportId = (data['reportId'] ?? '').toString();
-                final announcementId =
-                    (data['announcementId'] ?? '').toString();
-                final isAnnouncement = announcementId.isNotEmpty;
-                final title = isAnnouncement
-                    ? (data['announcementTitle'] ?? 'Announcement').toString()
-                    : (data['reportTitle'] ?? 'Report').toString();
-                final category = isAnnouncement
-                    ? (data['announcementCategory'] ?? '').toString()
-                    : (data['reportCategory'] ?? '').toString();
-                final message = (data['message'] ?? '').toString();
-                final createdAt = data['createdAt'] as Timestamp?;
-                final when = createdAt != null
-                    ? _formatDateTime(createdAt.toDate())
-                    : 'Just now';
+            final userContext = contextSnap.data;
+            if (userContext == null ||
+                !Permissions.canViewAuditLogs(userContext)) {
+              return const Center(
+                child: Text('You do not have access to audit logs.'),
+              );
+            }
 
-                final actorName = (data['actorName'] ?? '').toString();
-                final actorEmail = (data['actorEmail'] ?? '').toString();
-                final actorRole = (data['actorRole'] ?? '').toString();
-                final actorUid = (data['actorUid'] ?? '').toString();
-                final actorBase = actorName.isNotEmpty
-                    ? actorName
-                    : actorEmail.isNotEmpty
-                        ? actorEmail
-                        : actorRole.isNotEmpty
-                            ? actorRole.toUpperCase()
-                            : 'SYSTEM';
-                final actor = actorUid.isNotEmpty
-                    ? '$actorBase • $actorUid'
-                    : actorBase;
+            final scope = Permissions.auditLogScope(userContext);
+            final officeId = userContext.officeId;
+            if (scope == AuditLogScope.office &&
+                (officeId == null || officeId.trim().isEmpty)) {
+              return const Center(
+                child: Text('Office not assigned for audit log access.'),
+              );
+            }
 
-                final header =
-                    _prettyAction(action, title, isAnnouncement: isAnnouncement);
-                final subtitle = message.isNotEmpty
-                    ? message
-                    : category.isNotEmpty
-                        ? category
-                        : isAnnouncement
-                            ? 'Announcement update'
-                            : 'Report update';
+            Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+                .collection('audit_logs')
+                .orderBy('createdAt', descending: true)
+                .limit(100);
 
-                return Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: border),
-                  ),
-                  child: ListTile(
-                    leading: Icon(
-                      _actionIcon(action),
-                      color: accent,
-                    ),
-                    title: Text(header),
-                    subtitle: Text('$subtitle\n$actor • $when'),
-                    isThreeLine: true,
-                    trailing: (reportId.isNotEmpty || announcementId.isNotEmpty)
-                        ? const Icon(Icons.chevron_right)
-                        : null,
-                    onTap: reportId.isNotEmpty
-                        ? () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AdminReportDetailScreen(reportId: reportId),
-                              ),
-                            );
-                          }
-                        : announcementId.isNotEmpty
+            if (scope == AuditLogScope.office && officeId != null) {
+              query = query.where('officeId', isEqualTo: officeId);
+            }
+
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: query.snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data!.docs;
+                if (docs.isEmpty) {
+                  return const Center(child: Text('No audit logs yet.'));
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data();
+                    final action = (data['action'] ?? '').toString();
+                    final reportId = (data['reportId'] ?? '').toString();
+                    final announcementId =
+                        (data['announcementId'] ?? '').toString();
+                    final isAnnouncement = announcementId.isNotEmpty;
+                    final title = isAnnouncement
+                        ? (data['announcementTitle'] ?? 'Announcement').toString()
+                        : (data['reportTitle'] ?? 'Report').toString();
+                    final category = isAnnouncement
+                        ? (data['announcementCategory'] ?? '').toString()
+                        : (data['reportCategory'] ?? '').toString();
+                    final message = (data['message'] ?? '').toString();
+                    final createdAt = data['createdAt'] as Timestamp?;
+                    final when = createdAt != null
+                        ? _formatDateTime(createdAt.toDate())
+                        : 'Just now';
+
+                    final actorName = (data['actorName'] ?? '').toString();
+                    final actorEmail = (data['actorEmail'] ?? '').toString();
+                    final actorRole = (data['actorRole'] ?? '').toString();
+                    final actorUid = (data['actorUid'] ?? '').toString();
+                    final actorBase = actorName.isNotEmpty
+                        ? actorName
+                        : actorEmail.isNotEmpty
+                            ? actorEmail
+                            : actorRole.isNotEmpty
+                                ? actorRole.toUpperCase()
+                                : 'SYSTEM';
+                    final actor = actorUid.isNotEmpty
+                        ? '$actorBase • $actorUid'
+                        : actorBase;
+
+                    final header = _prettyAction(
+                      action,
+                      title,
+                      isAnnouncement: isAnnouncement,
+                    );
+                    final subtitle = message.isNotEmpty
+                        ? message
+                        : category.isNotEmpty
+                            ? category
+                            : isAnnouncement
+                                ? 'Announcement update'
+                                : 'Report update';
+
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: border),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          _actionIcon(action),
+                          color: accent,
+                        ),
+                        title: Text(header),
+                        subtitle: Text('$subtitle\n$actor • $when'),
+                        isThreeLine: true,
+                        trailing:
+                            (reportId.isNotEmpty || announcementId.isNotEmpty)
+                                ? const Icon(Icons.chevron_right)
+                                : null,
+                        onTap: reportId.isNotEmpty
                             ? () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => AnnouncementDetailScreen(
-                                      announcementId: announcementId,
+                                    builder: (_) => AdminReportDetailScreen(
+                                      reportId: reportId,
                                     ),
                                   ),
                                 );
                               }
-                            : null,
-                  ),
+                            : announcementId.isNotEmpty
+                                ? () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => AnnouncementDetailScreen(
+                                          announcementId: announcementId,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                      ),
+                    );
+                  },
                 );
               },
             );

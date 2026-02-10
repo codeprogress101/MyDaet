@@ -10,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../shared/report_status.dart';
 import '../shared/user_directory_service.dart';
 import '../shared/report_location_screen.dart';
+import '../../services/permissions.dart';
+import '../../services/user_context_service.dart';
 
 class AdminReportDetailScreen extends StatefulWidget {
   const AdminReportDetailScreen({super.key, required this.reportId});
@@ -27,6 +29,8 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
   bool _archiving = false;
 
   final _userDirectory = UserDirectoryService();
+  final _userContextService = UserContextService();
+  late final Future<UserContext?> _contextFuture;
   final _noteController = TextEditingController();
   final List<PlatformFile> _noteFiles = [];
 
@@ -42,6 +46,12 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
     if (!hasAssignee && normalized == "assigned") return "submitted";
     if (hasAssignee && normalized == "submitted") return "assigned";
     return normalized;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _contextFuture = _userContextService.getCurrent();
   }
 
   @override
@@ -109,12 +119,20 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
     try {
       final token = await user.getIdTokenResult();
       final role = token.claims?["role"];
-      if (role is String && role.isNotEmpty) return role;
+      return AppRole.normalize(role is String ? role : null);
     } catch (_) {}
     return "resident";
   }
 
-  Future<void> _save() async {
+  Future<void> _save({required bool canEdit}) async {
+    if (!canEdit) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("You don't have permission to edit.")),
+        );
+      }
+      return;
+    }
     setState(() => _saving = true);
     try {
       final hasAssignee = _assigneeUid != null && _assigneeUid!.trim().isNotEmpty;
@@ -209,9 +227,30 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
       );
     }
 
-    return Theme(
-      data: baseTheme.copyWith(textTheme: textTheme),
-      child: Scaffold(
+    return FutureBuilder<UserContext?>(
+      future: _contextFuture,
+      builder: (context, contextSnap) {
+        if (contextSnap.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (contextSnap.hasError) {
+          return Scaffold(
+            body: Center(child: Text("Error: ${contextSnap.error}")),
+          );
+        }
+
+        final userContext = contextSnap.data;
+        if (userContext == null) {
+          return const Scaffold(
+            body: Center(child: Text("Not logged in.")),
+          );
+        }
+
+        return Theme(
+          data: baseTheme.copyWith(textTheme: textTheme),
+          child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text("Report Detail"),
@@ -257,6 +296,28 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
             final archived = data["archived"] == true;
             final assignedToRaw = (data["assignedToUid"] ?? "") as String;
             final assignedTo = assignedToRaw.trim().isEmpty ? null : assignedToRaw;
+            final reportOfficeId = (data["officeId"] ?? "").toString().trim();
+            final canEdit = Permissions.canEditReport(
+              userContext,
+              reportOfficeId:
+                  reportOfficeId.isEmpty ? null : reportOfficeId,
+              assignedToUid: assignedTo,
+              currentUserUid: userContext.uid,
+            );
+            final officeFilterId =
+                userContext.isOfficeAdmin ? userContext.officeId : null;
+            final assignableRoles = userContext.isSuperAdmin
+                ? const ["moderator", "office_admin", "super_admin", "admin"]
+                : userContext.isOfficeAdmin
+                    ? const ["moderator", "office_admin"]
+                    : userContext.isModerator
+                        ? const ["moderator"]
+                        : const <String>[];
+            final manualUserError = userContext.isOfficeAdmin &&
+                    (userContext.officeId == null ||
+                        userContext.officeId!.trim().isEmpty)
+                ? "Office is required to load assignees."
+                : null;
 
             // Keep local selections in sync (only if not manually changed yet)
             _status =
@@ -264,9 +325,12 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
             _assigneeUid ??= assignedTo;
 
             return StreamBuilder<List<UserDirectoryItem>>(
-              stream: _userDirectory.watchAssignableUsers(),
+              stream: _userDirectory.watchAssignableUsers(
+                officeId: officeFilterId,
+                roles: assignableRoles,
+              ),
               builder: (context, userSnap) {
-                final userError = userSnap.error;
+                final userError = manualUserError ?? userSnap.error;
                 final options = (userSnap.data ?? const <UserDirectoryItem>[])
                     .map(
                       (u) => _UserPick(
@@ -363,6 +427,19 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                         ],
                       ),
                     ),
+                    if (!canEdit) ...[
+                      const SizedBox(height: 12),
+                      _card(
+                        context,
+                        child: Text(
+                          "Read-only: you don't have permission to edit this report.",
+                          style: textTheme.bodySmall?.copyWith(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     _sectionTitle(context, "Tracking"),
                     const SizedBox(height: 8),
@@ -546,7 +623,9 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                         isExpanded: true,
                         decoration: inputDecoration("Assign to"),
                         items: items,
-                        onChanged: (v) => setState(() => _assigneeUid = v),
+                        onChanged: canEdit
+                            ? (v) => setState(() => _assigneeUid = v)
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -564,9 +643,11 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => setState(
-                          () => _status = v ?? "submitted",
-                        ),
+                        onChanged: canEdit
+                            ? (v) => setState(
+                                  () => _status = v ?? "submitted",
+                                )
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -578,13 +659,14 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                         children: [
                           TextField(
                             controller: _noteController,
-                            enabled: !_saving,
+                            enabled: canEdit && !_saving,
                             maxLines: 3,
                             decoration: inputDecoration("Note"),
                           ),
                           const SizedBox(height: 10),
                           OutlinedButton.icon(
-                            onPressed: _saving ? null : _pickNoteFiles,
+                            onPressed:
+                                canEdit && !_saving ? _pickNoteFiles : null,
                             icon: const Icon(Icons.attach_file, color: accent),
                             label: const Text("Add Attachment"),
                             style: OutlinedButton.styleFrom(
@@ -608,7 +690,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                                 subtitle: Text(_formatBytes(f.size)),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.close),
-                                  onPressed: _saving
+                                  onPressed: _saving || !canEdit
                                       ? null
                                       : () => setState(() => _noteFiles.remove(f)),
                                 ),
@@ -633,9 +715,12 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                           child: SizedBox(
                             height: 48,
                             child: OutlinedButton.icon(
-                              onPressed: _archiving
+                              onPressed: _archiving || !canEdit
                                   ? null
-                                  : () => _toggleArchive(archive: !archived),
+                                  : () => _toggleArchive(
+                                        archive: !archived,
+                                        canEdit: canEdit,
+                                      ),
                               icon: _archiving
                                   ? const SizedBox(
                                       height: 18,
@@ -670,7 +755,9 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                           child: SizedBox(
                             height: 48,
                             child: FilledButton.icon(
-                              onPressed: _saving ? null : _save,
+                              onPressed: _saving || !canEdit
+                                  ? null
+                                  : () => _save(canEdit: canEdit),
                               style: FilledButton.styleFrom(
                                 backgroundColor: accent,
                                 foregroundColor: Colors.white,
@@ -701,10 +788,23 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
           },
         ),
       ),
+        );
+      },
     );
   }
 
-  Future<void> _toggleArchive({required bool archive}) async {
+  Future<void> _toggleArchive({
+    required bool archive,
+    required bool canEdit,
+  }) async {
+    if (!canEdit) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("You don't have permission to edit.")),
+        );
+      }
+      return;
+    }
     setState(() => _archiving = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -755,11 +855,13 @@ class _UserPick {
 String _formatUserLabel(UserDirectoryItem user) {
   final name = user.displayName.trim();
   final email = user.email.trim();
+  final office = (user.officeName ?? user.officeId ?? '').trim();
+  final officeLabel = office.isNotEmpty ? ' • $office' : '';
   if (name.isNotEmpty && email.isNotEmpty) {
-    return "$name • $email";
+    return "$name • $email$officeLabel";
   }
   if (name.isNotEmpty) return name;
-  if (email.isNotEmpty) return email;
+  if (email.isNotEmpty) return "$email$officeLabel";
   return user.uid;
 }
 
