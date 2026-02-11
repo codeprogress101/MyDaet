@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../shared/widgets/app_scaffold.dart';
 import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/search_field.dart';
+import '../shared/report_status.dart';
 import 'report_detail_screen.dart';
 
 class MyReportsScreen extends StatefulWidget {
@@ -131,7 +132,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                         Text(
                           'No reports match "$q".',
                           style: textTheme.bodyMedium?.copyWith(
-                            color: dark.withOpacity(0.6),
+                            color: dark.withValues(alpha: 0.6),
                           ),
                         )
                       else
@@ -150,6 +151,18 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                                           true
                                       ? data['status'] as String
                                       : 'submitted';
+                              final createdAt =
+                                  data['createdAt'] as Timestamp?;
+                              final updatedAt =
+                                  data['updatedAt'] as Timestamp?;
+                              final date = (updatedAt ?? createdAt)?.toDate();
+                              final dateLabel =
+                                  date != null ? _formatDate(date) : null;
+                              final statusRaw = status;
+                              final statusPretty =
+                                  ReportStatusHelper.pretty(statusRaw);
+                              final statusColor = _statusColor(statusRaw);
+
                               return Card(
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
@@ -158,14 +171,8 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                                     color: Color(0xFFE5E0DA),
                                   ),
                                 ),
-                                child: ListTile(
-                                  leading: const Icon(
-                                    Icons.assignment_outlined,
-                                    color: accent,
-                                  ),
-                                  title: Text(title),
-                                  subtitle: Text('Status: $status'),
-                                  trailing: const Icon(Icons.chevron_right),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
@@ -176,6 +183,68 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                                       ),
                                     );
                                   },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: accent.withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: const Icon(
+                                            Icons.assignment_outlined,
+                                            color: accent,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                title,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: textTheme.titleSmall
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: dark,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 6,
+                                                children: [
+                                                  _statusPill(
+                                                    label: statusPretty,
+                                                    color: statusColor,
+                                                  ),
+                                                  if (dateLabel != null)
+                                                    _metaPill(
+                                                      label:
+                                                          'Updated $dateLabel',
+                                                      border: border,
+                                                      textColor:
+                                                          dark.withValues(alpha: 0.7),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(Icons.chevron_right),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               );
                             },
@@ -199,20 +268,112 @@ class _OfflineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE5E0DA)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E0DA)),
+        color: Theme.of(context).colorScheme.surface,
       ),
-      child: ListTile(
-        leading: const Icon(Icons.wifi_off, color: Color(0xFFE46B2C)),
-        title: Text(
-          'Offline',
-          style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        subtitle: const Text('Showing cached reports.'),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off, color: Color(0xFFE46B2C), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Offline. Showing cached reports.',
+              style: textTheme.bodySmall?.copyWith(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.7),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+Widget _statusPill({
+  required String label,
+  required Color color,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+Widget _metaPill({
+  required String label,
+  required Color border,
+  required Color textColor,
+}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: border),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: textColor,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+  );
+}
+
+Color _statusColor(String status) {
+  switch (ReportStatusHelper.normalize(status)) {
+    case 'in_review':
+      return const Color(0xFF3A7BD5);
+    case 'assigned':
+      return const Color(0xFF5B7C99);
+    case 'resolved':
+      return const Color(0xFF2E7D32);
+    case 'rejected':
+      return const Color(0xFFC62828);
+    case 'submitted':
+    default:
+      return const Color(0xFFE46B2C);
+  }
+}
+
+String _formatDate(DateTime dt) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final m = months[dt.month - 1];
+  final day = dt.day.toString().padLeft(2, '0');
+  final year = dt.year.toString();
+  return '$m $day, $year';
 }

@@ -33,31 +33,18 @@ class _AccountPalette {
   final Color iconFg;
   final Color sectionTitle;
 
-  factory _AccountPalette.light() {
-    return const _AccountPalette(
-      bg: Color(0xFFFDFBFA),
-      card: Colors.white,
-      border: Color(0xFFE6E1DA),
-      title: Color(0xFF1A1E2A),
-      body: Color(0xFF1A1E2A),
-      subtitle: Color(0xFF5C5F6B),
-      iconBg: Color(0xFFF2EFEB),
-      iconFg: Color(0xFF1A1E2A),
-      sectionTitle: Color(0xFF1A1E2A),
-    );
-  }
-
-  factory _AccountPalette.dark() {
-    return const _AccountPalette(
-      bg: Color(0xFF1F1F23),
-      card: Color(0xFF2A2A30),
-      border: Color(0xFF3A3A42),
-      title: Color(0xFFF5F2EE),
-      body: Color(0xFFF5F2EE),
-      subtitle: Color(0xFFB9B4AC),
-      iconBg: Color(0xFF3A3A42),
-      iconFg: Color(0xFFF5F2EE),
-      sectionTitle: Color(0xFFF5F2EE),
+  factory _AccountPalette.fromScheme(ColorScheme scheme) {
+    final onSurface = scheme.onSurface;
+    return _AccountPalette(
+      bg: scheme.background,
+      card: scheme.surface,
+      border: scheme.outlineVariant,
+      title: onSurface,
+      body: onSurface,
+      subtitle: onSurface.withValues(alpha: 0.65),
+      iconBg: scheme.surfaceVariant,
+      iconFg: onSurface,
+      sectionTitle: onSurface,
     );
   }
 }
@@ -78,9 +65,9 @@ class _AccountScreenState extends State<AccountScreen> {
   bool _loading = true;
   String _status = 'Loading...';
   String _role = 'guest';
-  bool _savingName = false;
   String _nameStatus = '';
-  _AccountPalette _palette = _AccountPalette.light();
+  _AccountPalette _palette =
+      _AccountPalette.fromScheme(ThemeData.light().colorScheme);
 
   @override
   void initState() {
@@ -153,10 +140,7 @@ class _AccountScreenState extends State<AccountScreen> {
       return;
     }
 
-    setState(() {
-      _savingName = true;
-      _nameStatus = '';
-    });
+    setState(() => _nameStatus = '');
     try {
       await user.updateDisplayName(name);
       await FirebaseFirestore.instance
@@ -172,8 +156,6 @@ class _AccountScreenState extends State<AccountScreen> {
       setState(() => _nameStatus = 'Name updated.');
     } catch (e) {
       setState(() => _nameStatus = 'Failed to update name: $e');
-    } finally {
-      if (mounted) setState(() => _savingName = false);
     }
   }
 
@@ -227,6 +209,7 @@ class _AccountScreenState extends State<AccountScreen> {
       return;
     }
     final canOpen = await canLaunchUrl(uri);
+    if (!context.mounted) return;
     if (!canOpen) {
       _toast(context, 'Unable to open link.');
       return;
@@ -288,6 +271,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
     if (selected != null && selected != controller.mode) {
       await controller.setMode(selected);
+      if (!context.mounted) return;
       _toast(
         context,
         'Appearance set to ${selected == ThemeMode.dark ? 'Dark' : 'Light'}.',
@@ -327,7 +311,10 @@ class _AccountScreenState extends State<AccountScreen> {
     required String email,
   }) {
     const accent = Color(0xFFE4573D);
-    const light = Color(0xFFF5F2EE);
+    final scheme = Theme.of(context).colorScheme;
+    final onPrimary = scheme.onPrimary;
+    final light = onPrimary.withValues(alpha: 0.9);
+    final surface = scheme.surface;
     final textTheme = Theme.of(context).textTheme;
 
     return ClipRRect(
@@ -349,7 +336,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: onPrimary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -361,7 +348,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 width: 140,
                 height: 140,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: onPrimary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -375,7 +362,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surface,
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Center(
@@ -398,7 +385,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         Text(
                           user == null ? 'Get the Full Experience' : displayName,
                           style: textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
+                            color: onPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -408,7 +395,7 @@ class _AccountScreenState extends State<AccountScreen> {
                               ? 'Sign in to access full features and services.'
                               : email,
                           style: textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withOpacity(0.85),
+                            color: onPrimary.withValues(alpha: 0.85),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -419,7 +406,7 @@ class _AccountScreenState extends State<AccountScreen> {
                               onPressed: () => Navigator.of(context)
                                   .popUntil((r) => r.isFirst),
                               style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white,
+                                backgroundColor: surface,
                                 foregroundColor: accent,
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 22),
@@ -436,9 +423,9 @@ class _AccountScreenState extends State<AccountScreen> {
                             child: OutlinedButton(
                               onPressed: _showEditNameDialog,
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
+                                foregroundColor: onPrimary,
                                 side: BorderSide(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: onPrimary.withValues(alpha: 0.7),
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
@@ -457,7 +444,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: onPrimary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
@@ -497,7 +484,7 @@ class _AccountScreenState extends State<AccountScreen> {
         tiles.add(
           Divider(
             height: 1,
-            color: border.withOpacity(0.8),
+            color: border.withValues(alpha: 0.8),
           ),
         );
       }
@@ -581,9 +568,8 @@ class _AccountScreenState extends State<AccountScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE4573D);
-    final palette = baseTheme.brightness == Brightness.dark
-        ? _AccountPalette.dark()
-        : _AccountPalette.light();
+    final scheme = Theme.of(context).colorScheme;
+    final palette = _AccountPalette.fromScheme(baseTheme.colorScheme);
     _palette = palette;
 
     final email = user?.email ?? 'Not signed in';
@@ -747,7 +733,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: accent,
-                      foregroundColor: Colors.white,
+                      foregroundColor: scheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

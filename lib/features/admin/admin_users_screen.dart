@@ -93,7 +93,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       }
     }
 
-    Future<void> _addOffice(StateSetter setDialogState) async {
+    Future<void> addOffice(StateSetter setDialogState) async {
       final controller = TextEditingController();
       String? localError;
       bool saving = false;
@@ -132,9 +132,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         'createdAt': FieldValue.serverTimestamp(),
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
-                      if (context.mounted) {
-                        Navigator.of(ctx).pop(ref.id);
-                      }
+                      if (!ctx.mounted) return;
+                      Navigator.of(ctx).pop(ref.id);
                     } catch (e) {
                       setOfficeState(() {
                         saving = false;
@@ -172,9 +171,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'updatedAt': FieldValue.serverTimestamp(),
                               });
-                              if (context.mounted) {
-                                Navigator.of(ctx).pop(ref.id);
-                              }
+                              if (!ctx.mounted) return;
+                              Navigator.of(ctx).pop(ref.id);
                             } catch (e) {
                               setOfficeState(() {
                                 saving = false;
@@ -208,7 +206,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       });
     }
 
-    Future<void> _seedDefaultOffices(StateSetter setDialogState) async {
+    Future<void> seedDefaultOffices(StateSetter setDialogState) async {
       final existingNames = offices
           .map((o) => o.name.trim().toLowerCase())
           .where((name) => name.isNotEmpty)
@@ -307,7 +305,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      key: ValueKey('role-$selectedRole'),
+                      initialValue: selectedRole,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Role',
@@ -346,7 +345,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: selectedOfficeId,
+                      key: ValueKey('office-$selectedOfficeId'),
+                      initialValue: selectedOfficeId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Office',
@@ -392,13 +392,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           runSpacing: 4,
                           children: [
                             TextButton(
-                              onPressed: () => _addOffice(setDialogState),
-                              child: const Text('Add Office'),
-                            ),
-                            TextButton(
-                              onPressed: () => _seedDefaultOffices(setDialogState),
-                              child: const Text('Seed Defaults'),
-                            ),
+                      onPressed: () => addOffice(setDialogState),
+                      child: const Text('Add Office'),
+                    ),
+                    TextButton(
+                      onPressed: () => seedDefaultOffices(setDialogState),
+                      child: const Text('Seed Defaults'),
+                    ),
                           ],
                         ),
                       ],
@@ -463,14 +463,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         'isActive': isActive,
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('User updated.')),
-                        );
-                      }
-                      if (context.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('User updated.')),
+                      );
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
                     } catch (e) {
                       setDialogState(() {
                         errorText = 'Update failed: $e';
@@ -525,7 +523,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final d = docs[i];
                 final data = d.data();
@@ -539,26 +537,70 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     ? data['isActive'] as bool
                     : true;
 
-                final subtitleLines = <String>[
-                  'Email: $email',
-                  'Role: $role',
-                  if (officeName != null || officeId != null)
-                    'Office: ${officeName ?? officeId}',
-                  'Active: ${isActive ? 'yes' : 'no'}',
-                  'UID: ${d.id}',
-                ];
+                final title = displayName.isNotEmpty ? displayName : email;
+                final officeLabel = officeName ?? officeId;
 
                 return Card(
-                  child: ListTile(
-                    title: Text(displayName.isNotEmpty ? displayName : email),
-                    subtitle: Text(subtitleLines.join('\n')),
-                    trailing: role == AppRole.superAdmin
-                        ? null
-                        : IconButton(
-                            tooltip: 'Edit user',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _showEditDialog(doc: d),
-                          ),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Theme.of(context).dividerColor),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            if (role != AppRole.superAdmin)
+                              IconButton(
+                                tooltip: 'Edit user',
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () => _showEditDialog(doc: d),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _roleChip(role),
+                            _activeChip(isActive),
+                            if (officeLabel != null)
+                              _metaChip(
+                                'Office: $officeLabel',
+                                Theme.of(context).dividerColor,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Email: $email',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        Text(
+                          'UID: ${d.id}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.6),
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -567,6 +609,75 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         );
       },
     );
+  }
+}
+
+Widget _roleChip(String role) {
+  final color = _roleColor(role);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      role,
+      style: TextStyle(
+        color: color,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+Widget _activeChip(bool isActive) {
+  final color = isActive ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
+  final label = isActive ? 'Active' : 'Inactive';
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+Widget _metaChip(String label, Color border) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: border),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    ),
+  );
+}
+
+Color _roleColor(String role) {
+  switch (role) {
+    case AppRole.superAdmin:
+      return const Color(0xFF1B5E20);
+    case AppRole.officeAdmin:
+      return const Color(0xFF1E3A8A);
+    case AppRole.moderator:
+      return const Color(0xFF6D4C41);
+    case AppRole.resident:
+    default:
+      return const Color(0xFFE46B2C);
   }
 }
 

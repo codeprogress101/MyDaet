@@ -81,7 +81,7 @@ class _AdvertisementsScreenState extends State<AdvertisementsScreen> {
                     child: Text(
                       'No advertisements found.',
                       style: textTheme.bodyMedium?.copyWith(
-                        color: dark.withOpacity(0.6),
+                        color: dark.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -152,7 +152,7 @@ class _AdvertisementsScreenState extends State<AdvertisementsScreen> {
                             child: Text(
                               body,
                               style: textTheme.bodyMedium?.copyWith(
-                                color: dark.withOpacity(0.75),
+                                color: dark.withValues(alpha: 0.75),
                               ),
                             ),
                           ),
@@ -262,6 +262,7 @@ Future<void> _handleShareTap(
   );
 
   final canLaunch = await canLaunchUrl(shareUri);
+  if (!context.mounted) return;
   if (!canLaunch) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Unable to open Facebook share.')),
@@ -354,7 +355,7 @@ class AdvertisementDetailScreen extends StatelessWidget {
                           child: Text(
                             body,
                             style: textTheme.bodyMedium?.copyWith(
-                              color: dark.withOpacity(0.75),
+                              color: dark.withValues(alpha: 0.75),
                             ),
                           ),
                         ),
@@ -450,7 +451,7 @@ class _PostHeader extends StatelessWidget {
               Text(
                 metaText,
                 style: textTheme.bodySmall?.copyWith(
-                  color: dark.withOpacity(0.55),
+                  color: dark.withValues(alpha: 0.55),
                 ),
               ),
             ],
@@ -485,16 +486,16 @@ class _ReactionSummary extends StatelessWidget {
         Text(
           '$likeCount',
           style: textTheme.bodySmall?.copyWith(
-            color: dark.withOpacity(0.7),
+            color: dark.withValues(alpha: 0.7),
           ),
         ),
         const SizedBox(width: 12),
-        Icon(Icons.thumb_down, size: 16, color: dark.withOpacity(0.45)),
+        Icon(Icons.thumb_down, size: 16, color: dark.withValues(alpha: 0.45)),
         const SizedBox(width: 4),
         Text(
           '$dislikeCount',
           style: textTheme.bodySmall?.copyWith(
-            color: dark.withOpacity(0.7),
+            color: dark.withValues(alpha: 0.7),
           ),
         ),
       ],
@@ -539,7 +540,7 @@ class _PostActionBar extends StatelessWidget {
               child: _PostActionButton(
                 icon: liked ? Icons.thumb_up : Icons.thumb_up_outlined,
                 label: 'Like',
-                color: liked ? accent : dark.withOpacity(0.7),
+                color: liked ? accent : dark.withValues(alpha: 0.7),
                 onTap: () => adsService.setReaction(adId, liked ? null : 'like'),
               ),
             ),
@@ -547,7 +548,7 @@ class _PostActionBar extends StatelessWidget {
               child: _PostActionButton(
                 icon: disliked ? Icons.thumb_down : Icons.thumb_down_outlined,
                 label: 'Dislike',
-                color: disliked ? accent : dark.withOpacity(0.7),
+                color: disliked ? accent : dark.withValues(alpha: 0.7),
                 onTap: () =>
                     adsService.setReaction(adId, disliked ? null : 'dislike'),
               ),
@@ -564,7 +565,7 @@ class _PostActionBar extends StatelessWidget {
               child: _PostActionButton(
                 icon: Icons.share,
                 label: 'Share',
-                color: dark.withOpacity(0.7),
+                color: dark.withValues(alpha: 0.7),
                 onTap: () => _handleShareTap(
                   context,
                   shareUrl: shareUrl,
@@ -595,7 +596,7 @@ class _PostActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 16, color: color),
+      icon: Icon(icon, size: 18, color: color),
       label: Text(
         label,
         maxLines: 1,
@@ -608,7 +609,8 @@ class _PostActionButton extends StatelessWidget {
       ),
       style: TextButton.styleFrom(
         foregroundColor: color,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        minimumSize: const Size(0, 44),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
     );
@@ -640,7 +642,7 @@ class _MediaPreview extends StatelessWidget {
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _mediaFallback(context, height),
+          errorBuilder: (_, _, _) => _mediaFallback(context, height),
           loadingBuilder: (context, child, progress) {
             if (progress == null) return child;
             return _mediaFallback(context, height);
@@ -669,7 +671,7 @@ class _MediaPreview extends StatelessWidget {
                 height: height,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _mediaFallback(context, height),
+                errorBuilder: (_, _, _) => _mediaFallback(context, height),
               ),
             ),
             const Icon(Icons.play_circle, color: accent, size: 42),

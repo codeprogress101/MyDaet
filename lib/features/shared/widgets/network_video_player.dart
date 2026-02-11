@@ -41,6 +41,7 @@ class _NetworkVideoPlayerState extends State<NetworkVideoPlayer> {
   @override
   Widget build(BuildContext context) {
     final border = BorderRadius.circular(widget.borderRadius);
+    final scheme = Theme.of(context).colorScheme;
 
     if (!_ready || _controller == null) {
       return Container(
@@ -48,7 +49,7 @@ class _NetworkVideoPlayerState extends State<NetworkVideoPlayer> {
         decoration: BoxDecoration(
           borderRadius: border,
           border: Border.all(color: const Color(0xFFE5E0DA)),
-          color: Colors.white,
+          color: scheme.surface,
         ),
         child: const Center(
           child: Icon(Icons.play_circle, color: Color(0xFFE46B2C), size: 42),

@@ -5,6 +5,7 @@ import 'resident_home_screen.dart';
 import 'my_reports_screen.dart';
 import 'account_screen.dart';
 import 'advertisements_screen.dart';
+import '../shared/widgets/app_bottom_nav_shell.dart';
 
 class ResidentShell extends StatefulWidget {
   const ResidentShell({super.key});
@@ -30,39 +31,41 @@ class _ResidentShellState extends State<ResidentShell> {
 
     return Theme(
       data: baseTheme.copyWith(textTheme: textTheme),
-      child: Scaffold(
+      child: AppBottomNavScaffold(
         body: SafeArea(
           child: IndexedStack(
             index: _index,
             children: _pages,
           ),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (v) => setState(() => _index = v),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.list_alt_outlined),
-              selectedIcon: Icon(Icons.list_alt),
-              label: 'Reports',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.campaign_outlined),
-              selectedIcon: Icon(Icons.campaign),
-              label: 'Advertisement',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Account',
-            ),
-          ],
-        ),
+        currentIndex: _index,
+        onSelect: (v) => setState(() => _index = v),
+        items: const [
+          AppNavItem(
+            index: 0,
+            icon: Icons.home_outlined,
+            selectedIcon: Icons.home,
+            label: 'Home',
+          ),
+          AppNavItem(
+            index: 1,
+            icon: Icons.list_alt_outlined,
+            selectedIcon: Icons.list_alt,
+            label: 'Reports',
+          ),
+          AppNavItem(
+            index: 2,
+            icon: Icons.campaign_outlined,
+            selectedIcon: Icons.campaign,
+            label: 'Ads',
+          ),
+          AppNavItem(
+            index: 3,
+            icon: Icons.person_outline,
+            selectedIcon: Icons.person,
+            label: 'Account',
+          ),
+        ],
       ),
     );
   }

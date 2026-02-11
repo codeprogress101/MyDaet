@@ -23,8 +23,8 @@ class _ModeratorAdvertisementsScreenState
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
     const accent = Color(0xFFE46B2C);
+    final scheme = Theme.of(context).colorScheme;
     final border = Theme.of(context).dividerColor;
 
     return Theme(
@@ -55,10 +55,10 @@ class _ModeratorAdvertisementsScreenState
                 ),
                 const SizedBox(width: 10),
                 FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.white,
-                  ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: scheme.onPrimary,
+                ),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -96,7 +96,7 @@ class _ModeratorAdvertisementsScreenState
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final d = docs[i];
                     final data = d.data();
@@ -115,7 +115,7 @@ class _ModeratorAdvertisementsScreenState
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: accent.withOpacity(0.12),
+                            color: accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -217,7 +217,8 @@ class ModeratorAdvertisementDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     final border = Theme.of(context).dividerColor;
     const accent = Color(0xFFE46B2C);
 
@@ -260,7 +261,7 @@ class ModeratorAdvertisementDetailScreen extends StatelessWidget {
                     Text(
                       'Status: $status',
                       style: textTheme.bodySmall?.copyWith(
-                        color: dark.withOpacity(0.6),
+                        color: dark.withValues(alpha: 0.6),
                       ),
                     ),
                     if (media != null) ...[
@@ -271,14 +272,14 @@ class ModeratorAdvertisementDetailScreen extends StatelessWidget {
                     Text(
                       body,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: dark.withOpacity(0.7),
+                        color: dark.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       meta,
                       style: textTheme.bodySmall?.copyWith(
-                        color: dark.withOpacity(0.5),
+                        color: dark.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -294,7 +295,7 @@ class ModeratorAdvertisementDetailScreen extends StatelessWidget {
               },
               style: FilledButton.styleFrom(
                 backgroundColor: accent,
-                foregroundColor: Colors.white,
+                foregroundColor: scheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -328,7 +329,7 @@ class _MediaPreview extends StatelessWidget {
           height: 160,
           width: double.infinity,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _fallback(context),
+          errorBuilder: (_, _, _) => _fallback(context),
           loadingBuilder: (context, child, progress) {
             if (progress == null) return child;
             return _fallback(context);

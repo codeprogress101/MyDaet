@@ -11,6 +11,7 @@ class ReportStatusHelper {
     "submitted",
     "in_review",
     "assigned",
+    "in_progress",
     "resolved",
     "rejected",
   ];
@@ -29,6 +30,8 @@ class ReportStatusHelper {
         return "In review";
       case "assigned":
         return "Assigned";
+      case "in_progress":
+        return "In progress";
       case "resolved":
         return "Resolved";
       case "rejected":

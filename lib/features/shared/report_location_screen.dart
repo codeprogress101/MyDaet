@@ -20,7 +20,8 @@ class ReportLocationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     const accent = Color(0xFFE46B2C);
     final border = Theme.of(context).dividerColor;
 
@@ -94,7 +95,7 @@ class ReportLocationScreen extends StatelessWidget {
                     Text(
                       '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}',
                       style: textTheme.bodySmall?.copyWith(
-                        color: dark.withOpacity(0.7),
+                        color: dark.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -105,7 +106,7 @@ class ReportLocationScreen extends StatelessWidget {
                         onPressed: () => _openDirections(context, lat, lng),
                         style: FilledButton.styleFrom(
                           backgroundColor: accent,
-                          foregroundColor: Colors.white,
+                          foregroundColor: scheme.onPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),

@@ -147,7 +147,8 @@ class _AdminAdvertisementEditorScreenState
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     const accent = Color(0xFFE46B2C);
     final border = Theme.of(context).dividerColor;
 
@@ -259,7 +260,7 @@ class _AdminAdvertisementEditorScreenState
               Text(
                 'Selected: ${_mediaFile!.name}',
                 style: textTheme.bodySmall?.copyWith(
-                  color: dark.withOpacity(0.7),
+                  color: dark.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -311,18 +312,18 @@ class _AdminAdvertisementEditorScreenState
                 onPressed: _loading ? null : _save,
                 style: FilledButton.styleFrom(
                   backgroundColor: accent,
-                  foregroundColor: Colors.white,
+                  foregroundColor: scheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 child: _loading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 18,
                         width: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: scheme.onPrimary,
                         ),
                       )
                     : const Text('Save Advertisement'),
@@ -355,7 +356,7 @@ class _MediaPreview extends StatelessWidget {
           height: 160,
           width: double.infinity,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _fallback(context),
+          errorBuilder: (_, _, _) => _fallback(context),
           loadingBuilder: (context, child, progress) {
             if (progress == null) return child;
             return _fallback(context);

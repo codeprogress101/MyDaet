@@ -37,7 +37,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     const accent = Color(0xFFE46B2C);
 
     return Theme(
@@ -106,7 +107,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: accent,
-              foregroundColor: Colors.white,
+              foregroundColor: scheme.onPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

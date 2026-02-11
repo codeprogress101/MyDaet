@@ -271,7 +271,7 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
               Text(
                 'Search services, view updates, and submit reports.',
                 style: textTheme.bodyMedium?.copyWith(
-                  color: dark.withOpacity(0.65),
+                  color: dark.withValues(alpha: 0.65),
                 ),
               ),
               const SizedBox(height: 16),
@@ -308,7 +308,7 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
                   child: Text(
                     'No quick actions selected. Tap Edit to add.',
                     style: textTheme.bodySmall?.copyWith(
-                      color: dark.withOpacity(0.6),
+                      color: dark.withValues(alpha: 0.6),
                     ),
                   ),
                 )
@@ -361,7 +361,7 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
                     return Text(
                       'Unable to load updates.',
                       style: textTheme.bodyMedium?.copyWith(
-                        color: dark.withOpacity(0.6),
+                        color: dark.withValues(alpha: 0.6),
                       ),
                     );
                   }
@@ -377,7 +377,7 @@ class _ResidentHomeScreenState extends State<ResidentHomeScreen> {
                     return Text(
                       'No announcements yet.',
                       style: textTheme.bodyMedium?.copyWith(
-                        color: dark.withOpacity(0.6),
+                        color: dark.withValues(alpha: 0.6),
                       ),
                     );
                   }
@@ -993,7 +993,7 @@ class _SearchEmptyState extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
             ),
       ),
     );
@@ -1086,7 +1086,7 @@ class _QuickActionTile extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final border = Theme.of(context).dividerColor;
     final surface = Theme.of(context).colorScheme.surface;
-    final shadow = Colors.black.withOpacity(0.05);
+    final shadow = Colors.black.withValues(alpha: 0.05);
     final textTheme = Theme.of(context).textTheme;
 
     return InkWell(
@@ -1113,7 +1113,7 @@ class _QuickActionTile extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.12),
+                color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: accent, size: 16),
@@ -1135,7 +1135,7 @@ class _QuickActionTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: textTheme.bodySmall?.copyWith(
                 color:
-                    Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                    Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                 fontSize: 10,
               ),
             ),
@@ -1200,7 +1200,7 @@ class _UpdateCard extends StatelessWidget {
                         color: Theme.of(context)
                             .colorScheme
                             .onSurface
-                            .withOpacity(0.54),
+                            .withValues(alpha: 0.54),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1212,7 +1212,7 @@ class _UpdateCard extends StatelessWidget {
                         color: Theme.of(context)
                             .colorScheme
                             .onSurface
-                            .withOpacity(0.45),
+                            .withValues(alpha: 0.45),
                       ),
                     ),
                   ],
@@ -1226,7 +1226,7 @@ class _UpdateCard extends StatelessWidget {
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface
-                        .withOpacity(0.38),
+                        .withValues(alpha: 0.38),
                   ),
                 ),
             ],

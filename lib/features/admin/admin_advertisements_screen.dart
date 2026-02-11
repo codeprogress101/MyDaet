@@ -22,6 +22,7 @@ class _AdminAdvertisementsScreenState extends State<AdminAdvertisementsScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
+    final scheme = Theme.of(context).colorScheme;
     final border = Theme.of(context).dividerColor;
 
     return Theme(
@@ -51,7 +52,7 @@ class _AdminAdvertisementsScreenState extends State<AdminAdvertisementsScreen> {
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: accent,
-                    foregroundColor: Colors.white,
+                    foregroundColor: scheme.onPrimary,
                   ),
                   onPressed: () {
                     Navigator.of(context).push(
@@ -91,7 +92,7 @@ class _AdminAdvertisementsScreenState extends State<AdminAdvertisementsScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final d = docs[i];
                     final data = d.data();
@@ -110,7 +111,7 @@ class _AdminAdvertisementsScreenState extends State<AdminAdvertisementsScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: accent.withOpacity(0.12),
+                            color: accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(

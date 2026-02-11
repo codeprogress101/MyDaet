@@ -101,6 +101,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             }
 
             final docs = snap.data!.docs;
+            final counts = <String, int>{
+              'All': docs.length,
+            };
+            for (final doc in docs) {
+              final label = _categoryForData(doc.data());
+              counts[label] = (counts[label] ?? 0) + 1;
+            }
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _service.myReadsStream(),
               builder: (context, readsSnap) {
@@ -129,8 +136,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         itemBuilder: (context, index) {
                           final label = _categories[index];
                           final selected = _category == label;
+                          final count = counts[label] ?? 0;
+                          final chipLabel =
+                              label == 'All' ? 'All ($count)' : '$label ($count)';
                           return ChoiceChip(
-                            label: Text(label),
+                            label: Text(chipLabel),
                             selected: selected,
                             onSelected: (_) {
                               setState(() => _category = label);
@@ -153,7 +163,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             ),
                           );
                         },
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
                         itemCount: _categories.length,
                       ),
                     ),
@@ -470,7 +480,7 @@ class _AnnouncementDetailBody extends StatelessWidget {
                         height: 180,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _mediaFallback(context),
+                        errorBuilder: (_, _, _) => _mediaFallback(context),
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return _mediaFallback(context);
@@ -573,7 +583,7 @@ class _AnnouncementThumb extends StatelessWidget {
         width: 44,
         height: 44,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (_, _, _) => Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(

@@ -20,17 +20,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showSuccess(String message) {
     if (!mounted) return;
+    final scheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        backgroundColor: const Color(0xFF1F2A24),
+        backgroundColor: scheme.inverseSurface,
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.white),
+            Icon(Icons.check_circle, color: scheme.onInverseSurface),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: scheme.onInverseSurface),
+              ),
+            ),
           ],
         ),
       ),
@@ -107,7 +113,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
 
     InputDecoration inputDecoration(String label, IconData icon) {
       return InputDecoration(
@@ -181,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'Sign in to your account',
                             style: textTheme.bodyMedium?.copyWith(
-                              color: dark.withOpacity(0.6),
+                              color: dark.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -248,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: _loading ? null : _loginEmail,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: accent,
-                                foregroundColor: Colors.white,
+                                foregroundColor: scheme.onPrimary,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -273,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Text(
                                   'OR',
                                   style: textTheme.labelSmall?.copyWith(
-                                    color: dark.withOpacity(0.5),
+                                    color: dark.withValues(alpha: 0.5),
                                   ),
                                 ),
                               ),
@@ -288,9 +295,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: OutlinedButton(
                               onPressed: _loading ? null : _loginGoogle,
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white,
+                                backgroundColor: scheme.surface,
                                 foregroundColor: dark,
-                                side: const BorderSide(color: Color(0xFFE5E0DA)),
+                                side: BorderSide(color: scheme.outlineVariant),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -314,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               _status,
                               style: textTheme.bodySmall?.copyWith(
-                                color: dark.withOpacity(0.7),
+                                color: dark.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -323,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'By signing in, you agree to our\nTerms of Service and Privacy Policy.',
                             textAlign: TextAlign.center,
                             style: textTheme.bodySmall?.copyWith(
-                              color: dark.withOpacity(0.6),
+                              color: dark.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 18),

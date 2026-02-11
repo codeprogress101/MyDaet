@@ -71,6 +71,7 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final label = count > 99 ? '99+' : count.toString();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -78,13 +79,13 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white, width: 1),
+        border: Border.all(color: scheme.onPrimary, width: 1),
       ),
       child: Center(
         child: Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: scheme.onPrimary,
             fontSize: 10,
             fontWeight: FontWeight.w700,
           ),

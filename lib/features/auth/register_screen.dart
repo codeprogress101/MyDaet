@@ -104,7 +104,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
 
     InputDecoration inputDecoration(String label, IconData icon) {
       return InputDecoration(
@@ -178,7 +179,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text(
                             'Join MyDaet and stay updated with your community.',
                             style: textTheme.bodyMedium?.copyWith(
-                              color: dark.withOpacity(0.6),
+                              color: dark.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -264,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               onPressed: _loading ? null : _register,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: accent,
-                                foregroundColor: Colors.white,
+                                foregroundColor: scheme.onPrimary,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -282,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Text(
                               _status,
                               style: textTheme.bodySmall?.copyWith(
-                                color: dark.withOpacity(0.7),
+                                color: dark.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -291,7 +292,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             'By signing up, you agree to our\nTerms of Service and Privacy Policy.',
                             textAlign: TextAlign.center,
                             style: textTheme.bodySmall?.copyWith(
-                              color: dark.withOpacity(0.6),
+                              color: dark.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 18),

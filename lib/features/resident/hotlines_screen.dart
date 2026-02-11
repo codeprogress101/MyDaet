@@ -83,7 +83,7 @@ class _HotlinesScreenState extends State<HotlinesScreen> {
                     ? 'No hotlines available.'
                     : 'No hotlines found for "$q".',
                 style: textTheme.bodyMedium?.copyWith(
-                  color: dark.withOpacity(0.6),
+                  color: dark.withValues(alpha: 0.6),
                 ),
               )
             else
@@ -115,7 +115,7 @@ class _HotlinesScreenState extends State<HotlinesScreen> {
             Text(
               'Next: add tap-to-call (url_launcher) + official hotline verification.',
               style: textTheme.bodySmall?.copyWith(
-                color: dark.withOpacity(0.6),
+                color: dark.withValues(alpha: 0.6),
               ),
             ),
           ],

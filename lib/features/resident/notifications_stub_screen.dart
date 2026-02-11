@@ -77,7 +77,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   return ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: docs.length + (isOffline ? 1 : 0),
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       if (index == 0 && isOffline) {
                         return _OfflineBanner(textTheme: textTheme);
@@ -111,7 +111,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: ListTile(
                           leading: Icon(
                             read ? Icons.notifications_none : icon,
-                            color: read ? dark.withOpacity(0.4) : accent,
+                            color: read ? dark.withValues(alpha: 0.4) : accent,
                           ),
                           title: Text(
                             title,

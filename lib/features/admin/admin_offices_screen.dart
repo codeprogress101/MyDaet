@@ -33,7 +33,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
 
     await showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -57,6 +57,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                         setError: (v) => errorText = v,
                         setSaving: (v) => saving = v,
                       );
+                      if (!context.mounted) return;
                       if (!saving) {
                         Navigator.of(context).pop();
                       }
@@ -89,6 +90,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                             setError: (v) => errorText = v,
                             setSaving: (v) => saving = v,
                           );
+                          if (!context.mounted) return;
                           if (!saving) {
                             Navigator.of(context).pop();
                           }
@@ -139,11 +141,10 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Office added.')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Office added.')),
+      );
     } catch (e) {
       setDialogState(() {
         setSaving(false);
@@ -168,7 +169,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
 
     await showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -226,14 +227,12 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                               },
                               SetOptions(merge: true),
                             );
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Office updated.')),
-                              );
-                            }
-                            if (context.mounted) {
-                              Navigator.of(context).pop();
-                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(content: Text('Office updated.')),
+                            );
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
                           } catch (e) {
                             setDialogState(() {
                               saving = false;
@@ -323,7 +322,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                   child: Text(
                     'Manage offices and activation status.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: dark.withOpacity(0.7),
+                      color: dark.withValues(alpha: 0.7),
                     ),
                   ),
                 ),
@@ -348,7 +347,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                   child: Text(
                     'No offices match "$q".',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: dark.withOpacity(0.6),
+                      color: dark.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -379,33 +378,14 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? accent.withOpacity(0.12)
-                                  : Colors.grey.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: isActive
-                                    ? accent.withOpacity(0.35)
-                                    : Colors.grey.withOpacity(0.4),
-                              ),
-                            ),
-                            child: Text(
-                              isActive ? 'Active' : 'Inactive',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: isActive ? accent : Colors.grey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        isActive ? 'Active' : 'Inactive',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isActive
+                              ? accent.withValues(alpha: 0.9)
+                              : dark.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     trailing: Row(
@@ -414,7 +394,7 @@ class _AdminOfficesScreenState extends State<AdminOfficesScreen> {
                         IconButton(
                           tooltip: 'Edit',
                           icon: Icon(Icons.edit_outlined,
-                              color: dark.withOpacity(0.75)),
+                              color: dark.withValues(alpha: 0.75)),
                           onPressed: () => _showEditOfficeDialog(doc),
                         ),
                         Switch.adaptive(

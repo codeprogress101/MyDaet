@@ -214,7 +214,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               child: Text(
                                 'No offices found.',
                                 style: textTheme.bodyMedium?.copyWith(
-                                  color: dark.withOpacity(0.6),
+                                  color: dark.withValues(alpha: 0.6),
                                 ),
                               ),
                             ),
@@ -222,7 +222,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         else
                           SliverList.separated(
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final office = filtered[index];
@@ -234,7 +234,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   side: BorderSide(color: border),
                                 ),
                                 tileColor: isSelected
-                                    ? accent.withOpacity(0.08)
+                                    ? accent.withValues(alpha: 0.08)
                                     : null,
                                 title: Text(
                                   office.name,
@@ -296,7 +296,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               ? 'Office selected manually.'
               : 'Auto-selected by category. You can change it.',
           style: textTheme.bodySmall?.copyWith(
-            color: dark.withOpacity(0.6),
+            color: dark.withValues(alpha: 0.6),
           ),
         ),
       ],
@@ -366,7 +366,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
     setState(() => _status = 'Getting GPS location...');
     final pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
     if (!isWithinDaet(pos.latitude, pos.longitude)) {
@@ -545,7 +547,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       );
       Navigator.of(context).pop();
     } catch (e) {
-      setState(() => _status = 'Submit failed: $e');
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        setState(() {
+          _status =
+              'Submit blocked by security rules. Make sure you are logged in, your account is active, and an office is selected. If your role was updated, logout/login to refresh.';
+        });
+      } else {
+        setState(() => _status = 'Submit failed: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -557,7 +566,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     final border = Theme.of(context).dividerColor;
 
     InputDecoration inputDecoration(String label, IconData icon) {
@@ -633,9 +643,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             if (_inactiveOfficeCount > 0) ...[
               const SizedBox(height: 6),
               Text(
-                'Inactive offices are hidden (${_inactiveOfficeCount} inactive).',
+                'Inactive offices are hidden ($_inactiveOfficeCount inactive).',
                 style: textTheme.bodySmall?.copyWith(
-                  color: dark.withOpacity(0.6),
+                  color: dark.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -732,7 +742,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               Text(
                 'No attachments yet (optional).',
                 style: textTheme.bodySmall?.copyWith(
-                  color: dark.withOpacity(0.7),
+                  color: dark.withValues(alpha: 0.7),
                 ),
               )
             else
@@ -763,18 +773,18 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 onPressed: _loading ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: accent,
-                  foregroundColor: Colors.white,
+                  foregroundColor: scheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 child: _loading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 18,
                         width: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: scheme.onPrimary,
                         ),
                       )
                     : const Text('Submit Report'),
@@ -784,7 +794,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             Text(
               _status,
               style: textTheme.bodySmall?.copyWith(
-                color: dark.withOpacity(0.7),
+                color: dark.withValues(alpha: 0.7),
               ),
             ),
           ],

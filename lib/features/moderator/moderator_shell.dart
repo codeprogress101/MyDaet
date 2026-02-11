@@ -9,6 +9,7 @@ import '../resident/notifications_stub_screen.dart';
 import '../shared/widgets/notification_bell.dart';
 import '../../services/notification_service.dart';
 import '../resident/account_screen.dart';
+import '../shared/widgets/app_bottom_nav_shell.dart';
 
 class ModeratorShell extends StatefulWidget {
   const ModeratorShell({super.key});
@@ -52,7 +53,7 @@ class _ModeratorShellState extends State<ModeratorShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppBottomNavScaffold(
       appBar: AppBar(
         title: Text(_titleFor(_index)),
         actions: [
@@ -76,37 +77,34 @@ class _ModeratorShellState extends State<ModeratorShell> {
         index: _index,
         children: _tabs,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (v) => setState(() => _index = v),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: "Dashboard",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: "Reports",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.inbox_outlined),
-            selectedIcon: Icon(Icons.inbox),
-            label: "Inbox",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.campaign_outlined),
-            selectedIcon: Icon(Icons.campaign),
-            label: "Ads",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: "Account",
-          ),
-        ],
-      ),
+      currentIndex: _index,
+      onSelect: (v) => setState(() => _index = v),
+      items: const [
+        AppNavItem(
+          index: 0,
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard,
+          label: "Dashboard",
+        ),
+        AppNavItem(
+          index: 1,
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long,
+          label: "Reports",
+        ),
+        AppNavItem(
+          index: 3,
+          icon: Icons.campaign_outlined,
+          selectedIcon: Icons.campaign,
+          label: "Ads",
+        ),
+        AppNavItem(
+          index: 4,
+          icon: Icons.person_outline,
+          selectedIcon: Icons.person,
+          label: "Account",
+        ),
+      ],
     );
   }
 }

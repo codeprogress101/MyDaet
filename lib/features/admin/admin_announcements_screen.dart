@@ -22,6 +22,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     const accent = Color(0xFFE46B2C);
+    final scheme = Theme.of(context).colorScheme;
     final border = Theme.of(context).dividerColor;
 
     return Theme(
@@ -59,10 +60,10 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
                 ),
                 const SizedBox(width: 10),
                 FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.white,
-                  ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: scheme.onPrimary,
+                ),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -102,7 +103,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, i) {
                     final d = docs[i];
                     final data = d.data();
@@ -124,7 +125,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: accent.withOpacity(0.12),
+                            color: accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(

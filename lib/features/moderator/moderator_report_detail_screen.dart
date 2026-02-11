@@ -154,7 +154,8 @@ class _ModeratorReportDetailScreenState extends State<ModeratorReportDetailScree
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     const accent = Color(0xFFE46B2C);
     final border = Theme.of(context).dividerColor;
 
@@ -552,7 +553,7 @@ class _ModeratorReportDetailScreenState extends State<ModeratorReportDetailScree
                     onPressed: _saving || !canEdit ? null : _save,
                     style: FilledButton.styleFrom(
                       backgroundColor: accent,
-                      foregroundColor: Colors.white,
+                      foregroundColor: scheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -1086,7 +1087,7 @@ Widget _imageTile(BuildContext context, String url) {
                   if (progress == null) return child;
                   return const Center(child: CircularProgressIndicator());
                 },
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image)),
               ),
       ),
@@ -1111,8 +1112,9 @@ class _FullScreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: scheme.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -1122,12 +1124,14 @@ class _FullScreenImage extends StatelessWidget {
                   child: Image.network(
                     url,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.broken_image, color: Colors.white),
+                    errorBuilder: (_, _, _) =>
+                        Icon(Icons.broken_image, color: scheme.onBackground),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: scheme.onBackground,
+                        ),
                       );
                     },
                   ),
@@ -1139,7 +1143,7 @@ class _FullScreenImage extends StatelessWidget {
               left: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: Icon(Icons.close, color: scheme.onBackground),
               ),
             ),
           ],

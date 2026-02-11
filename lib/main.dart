@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/auth_gate.dart';
@@ -47,16 +46,34 @@ class MyApp extends StatelessWidget {
   }
 
   ThemeData _buildLightTheme() {
-    const bg = Color(0xFFFDFBFA);
+    const bg = Colors.white;
     const onBg = Color(0xFF1A1E2A);
     const accent = Color(0xFFE4573D);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: accent,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: accent,
+      secondary: accent,
+      surface: bg,
+      background: bg,
+    );
+    final cardTheme = CardThemeData(
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+    );
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: accent,
-        brightness: Brightness.light,
-      ),
+      colorScheme: scheme,
       scaffoldBackgroundColor: bg,
+      cardTheme: cardTheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: bg,
         foregroundColor: onBg,
@@ -69,13 +86,32 @@ class MyApp extends StatelessWidget {
     const bg = Color(0xFF1F1F23);
     const onBg = Color(0xFFF5F2EE);
     const accent = Color(0xFFE4573D);
+    const cardSurface = Color(0xFF2A2A30);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: accent,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: accent,
+      secondary: accent,
+      surface: cardSurface,
+      background: bg,
+    );
+    final cardTheme = CardThemeData(
+      color: cardSurface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: scheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+    );
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: accent,
-        brightness: Brightness.dark,
-      ),
+      colorScheme: scheme,
       scaffoldBackgroundColor: bg,
+      cardTheme: cardTheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: bg,
         foregroundColor: onBg,

@@ -95,7 +95,7 @@ class _ReportDetailBody extends StatelessWidget {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final dark = theme.colorScheme.onSurface;
-    final muted = dark.withOpacity(0.7);
+    final muted = dark.withValues(alpha: 0.7);
     final border = theme.dividerColor;
 
     final title = _string(data['title'], fallback: 'Untitled report');
@@ -103,6 +103,7 @@ class _ReportDetailBody extends StatelessWidget {
     final contactNumber = _string(data['contactNumber']);
     final category = _string(data['category'], fallback: 'Uncategorized');
     final status = _string(data['status'], fallback: 'submitted');
+    final officeName = _string(data['officeName']);
     final createdAt = _timestamp(data['createdAt']);
     final createdAtLabel =
         createdAt != null ? _formatDateTime(createdAt.toDate()) : 'Unknown date';
@@ -141,13 +142,21 @@ class _ReportDetailBody extends StatelessWidget {
                     textColor: dark,
                     borderColor: border,
                   ),
+                  if (officeName.isNotEmpty)
+                    _chip(
+                      label: officeName,
+                      icon: Icons.business_outlined,
+                      color: Theme.of(context).colorScheme.surface,
+                      textColor: dark,
+                      borderColor: border,
+                    ),
                   _chip(
                     label: _prettyStatus(status),
                     icon: Icons.circle,
                     iconColor: _statusColor(status),
-                    color: _statusColor(status).withOpacity(0.12),
+                    color: _statusColor(status).withValues(alpha: 0.12),
                     textColor: dark,
-                    borderColor: _statusColor(status).withOpacity(0.25),
+                    borderColor: _statusColor(status).withValues(alpha: 0.25),
                   ),
                 ],
               ),
@@ -422,6 +431,7 @@ Widget _statusTimeline(
     children: List.generate(steps.length, (index) {
       final step = steps[index];
       final isDone = currentIndex >= 0 ? index <= currentIndex : index == 0;
+      final isCurrent = currentIndex >= 0 && index == currentIndex;
       final isLast = index == steps.length - 1;
       final color = isDone ? activeColor : border;
 
@@ -433,8 +443,8 @@ Widget _statusTimeline(
             Column(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: isCurrent ? 14 : 12,
+                  height: isCurrent ? 14 : 12,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
@@ -443,8 +453,8 @@ Widget _statusTimeline(
                 if (!isLast)
                   Container(
                     width: 2,
-                    height: 26,
-                    color: color.withOpacity(0.8),
+                    height: isCurrent ? 28 : 26,
+                    color: color.withValues(alpha: 0.8),
                   ),
               ],
             ),
@@ -453,9 +463,9 @@ Widget _statusTimeline(
               child: Text(
                 _prettyStatus(step),
                 style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: isDone ? FontWeight.w700 : FontWeight.w500,
-                  color:
-                      isDone ? onSurface : onSurface.withOpacity(0.54),
+                  fontWeight:
+                      isCurrent ? FontWeight.w800 : (isDone ? FontWeight.w700 : FontWeight.w500),
+                  color: isDone ? onSurface : onSurface.withValues(alpha: 0.54),
                 ),
               ),
             ),
@@ -568,7 +578,7 @@ Widget _historySection(
                           color: Theme.of(context)
                               .colorScheme
                               .onSurface
-                              .withOpacity(0.6),
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -729,7 +739,7 @@ Widget _notesSection(
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurface
-                                  .withOpacity(0.6),
+                                  .withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -744,7 +754,7 @@ Widget _notesSection(
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface
-                        .withOpacity(0.6),
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -806,7 +816,7 @@ Widget _imageTile(BuildContext context, String url) {
                   if (progress == null) return child;
                   return const Center(child: CircularProgressIndicator());
                 },
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image)),
               ),
       ),
@@ -831,8 +841,9 @@ class _FullScreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: scheme.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -842,12 +853,14 @@ class _FullScreenImage extends StatelessWidget {
                   child: Image.network(
                     url,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.broken_image, color: Colors.white),
+                    errorBuilder: (_, _, _) =>
+                        Icon(Icons.broken_image, color: scheme.onBackground),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: scheme.onBackground,
+                        ),
                       );
                     },
                   ),
@@ -859,7 +872,7 @@ class _FullScreenImage extends StatelessWidget {
               left: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: Icon(Icons.close, color: scheme.onBackground),
               ),
             ),
           ],

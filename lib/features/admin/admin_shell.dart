@@ -12,6 +12,7 @@ import '../../services/notification_service.dart';
 import '../../services/permissions.dart';
 import '../../services/user_context_service.dart';
 import '../resident/account_screen.dart';
+import '../shared/widgets/app_bottom_nav_shell.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -96,19 +97,56 @@ class _AdminShellState extends State<AdminShell> {
       );
     }
 
-    tabs.add(
-      _AdminTab(
-        page: const AccountScreen(showAppBar: false),
-        title: "Account",
-        destination: const NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: "Account",
-        ),
-      ),
-    );
-
     return tabs;
+  }
+
+  List<AppNavItem> _buildNavItems(List<_AdminTab> tabs) {
+    int indexFor(String title) => tabs.indexWhere((t) => t.title == title);
+
+    final dashboardIndex = 0;
+    final reportsIndex = indexFor("Reports");
+    final adsIndex = indexFor("Advertisements");
+    final usersIndex = indexFor("Users");
+    final officesIndex = indexFor("Offices");
+
+    final items = <AppNavItem>[
+      AppNavItem(
+        index: dashboardIndex,
+        icon: Icons.dashboard_outlined,
+        selectedIcon: Icons.dashboard,
+        label: "Dashboard",
+      ),
+      if (reportsIndex >= 0)
+        AppNavItem(
+          index: reportsIndex,
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long,
+          label: "Reports",
+        ),
+      if (adsIndex >= 0)
+        AppNavItem(
+          index: adsIndex,
+          icon: Icons.campaign_outlined,
+          selectedIcon: Icons.campaign,
+          label: "Ads",
+        ),
+      if (usersIndex >= 0)
+        AppNavItem(
+          index: usersIndex,
+          icon: Icons.people_outline,
+          selectedIcon: Icons.people,
+          label: "Users",
+        ),
+      if (officesIndex >= 0)
+        AppNavItem(
+          index: officesIndex,
+          icon: Icons.business_outlined,
+          selectedIcon: Icons.business,
+          label: "Offices",
+        ),
+    ];
+
+    return items;
   }
 
   @override
@@ -142,7 +180,9 @@ class _AdminShellState extends State<AdminShell> {
         final tabs = _buildTabs(userContext);
         final safeIndex = _index < tabs.length ? _index : 0;
 
-        return Scaffold(
+        final navItems = _buildNavItems(tabs);
+
+        return AppBottomNavScaffold(
           appBar: AppBar(
             title: Text(tabs[safeIndex].title),
             actions: [
@@ -156,6 +196,17 @@ class _AdminShellState extends State<AdminShell> {
                 },
               ),
               IconButton(
+                tooltip: "Account",
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AccountScreen(showAppBar: true),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.person_outline),
+              ),
+              IconButton(
                 tooltip: "Logout",
                 onPressed: _logout,
                 icon: const Icon(Icons.logout),
@@ -166,14 +217,9 @@ class _AdminShellState extends State<AdminShell> {
             index: safeIndex,
             children: tabs.map((t) => t.page).toList(),
           ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: safeIndex,
-            onDestinationSelected: (v) => setState(() => _index = v),
-            labelBehavior: tabs.length > 5
-                ? NavigationDestinationLabelBehavior.onlyShowSelected
-                : NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: tabs.map((t) => t.destination).toList(),
-          ),
+          currentIndex: safeIndex,
+          onSelect: (v) => setState(() => _index = v),
+          items: navItems,
         );
       },
     );

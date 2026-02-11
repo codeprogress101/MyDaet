@@ -202,7 +202,8 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
-    final dark = Theme.of(context).colorScheme.onSurface;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = scheme.onSurface;
     const accent = Color(0xFFE46B2C);
     final border = Theme.of(context).dividerColor;
 
@@ -395,10 +396,10 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                                 label: _prettyStatus(currentStatus),
                                 icon: Icons.circle,
                                 iconColor: _statusColor(currentStatus),
-                                color: _statusColor(currentStatus).withOpacity(0.12),
+                                color: _statusColor(currentStatus).withValues(alpha: 0.12),
                                 textColor: dark,
                                 borderColor:
-                                    _statusColor(currentStatus).withOpacity(0.25),
+                                    _statusColor(currentStatus).withValues(alpha: 0.25),
                               ),
                               if (archived)
                                 _chip(
@@ -419,7 +420,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                               Text(
                                 "Created: $createdAtLabel",
                                 style: textTheme.bodySmall?.copyWith(
-                                  color: dark.withOpacity(0.7),
+                                  color: dark.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -490,13 +491,13 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                               ? Text(
                                   "${lat.toDouble().toStringAsFixed(6)}, ${lng.toDouble().toStringAsFixed(6)}",
                                   style: textTheme.bodySmall?.copyWith(
-                                    color: dark.withOpacity(0.7),
+                                    color: dark.withValues(alpha: 0.7),
                                   ),
                                 )
                               : Text(
                                   "Coordinates not available",
                                   style: textTheme.bodySmall?.copyWith(
-                                    color: dark.withOpacity(0.7),
+                                    color: dark.withValues(alpha: 0.7),
                                   ),
                                 ),
                           trailing: hasCoords
@@ -596,7 +597,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                                         Text(
                                           _formatBytes(_int(item["size"])),
                                           style: textTheme.bodySmall?.copyWith(
-                                            color: dark.withOpacity(0.7),
+                                            color: dark.withValues(alpha: 0.7),
                                           ),
                                         ),
                                       ],
@@ -760,18 +761,18 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                                   : () => _save(canEdit: canEdit),
                               style: FilledButton.styleFrom(
                                 backgroundColor: accent,
-                                foregroundColor: Colors.white,
+                                foregroundColor: scheme.onPrimary,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               icon: _saving
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 18,
                                       width: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white,
+                                        color: scheme.onPrimary,
                                       ),
                                     )
                                   : const Icon(Icons.save),
@@ -949,7 +950,7 @@ Widget _statusTimeline(
                   Container(
                     width: 2,
                     height: 26,
-                    color: color.withOpacity(0.8),
+                    color: color.withValues(alpha: 0.8),
                   ),
               ],
             ),
@@ -960,7 +961,7 @@ Widget _statusTimeline(
                 style: textTheme.bodyMedium?.copyWith(
                   fontWeight: isDone ? FontWeight.w700 : FontWeight.w500,
                   color:
-                      isDone ? onSurface : onSurface.withOpacity(0.54),
+                      isDone ? onSurface : onSurface.withValues(alpha: 0.54),
                 ),
               ),
             ),
@@ -1139,7 +1140,7 @@ Widget _historySection(
                           color: Theme.of(context)
                               .colorScheme
                               .onSurface
-                              .withOpacity(0.6),
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -1300,7 +1301,7 @@ Widget _notesSection(
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurface
-                                  .withOpacity(0.6),
+                                  .withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -1315,7 +1316,7 @@ Widget _notesSection(
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface
-                        .withOpacity(0.6),
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1366,7 +1367,7 @@ Widget _imageTile(BuildContext context, String url) {
                   if (progress == null) return child;
                   return const Center(child: CircularProgressIndicator());
                 },
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image)),
               ),
       ),
@@ -1391,8 +1392,9 @@ class _FullScreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: scheme.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -1402,12 +1404,14 @@ class _FullScreenImage extends StatelessWidget {
                   child: Image.network(
                     url,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.broken_image, color: Colors.white),
+                    errorBuilder: (_, _, _) =>
+                        Icon(Icons.broken_image, color: scheme.onBackground),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: scheme.onBackground,
+                        ),
                       );
                     },
                   ),
@@ -1419,7 +1423,7 @@ class _FullScreenImage extends StatelessWidget {
               left: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: Icon(Icons.close, color: scheme.onBackground),
               ),
             ),
           ],
