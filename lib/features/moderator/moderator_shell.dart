@@ -5,6 +5,7 @@ import 'moderator_dashboard_screen.dart';
 import 'moderator_reports_screen.dart';
 import 'moderator_inbox_screen.dart';
 import 'moderator_advertisements_screen.dart';
+import '../dts/presentation/dts_home_screen.dart';
 import '../resident/notifications_stub_screen.dart';
 import '../shared/widgets/notification_bell.dart';
 import '../../services/notification_service.dart';
@@ -24,9 +25,10 @@ class _ModeratorShellState extends State<ModeratorShell> {
   final _tabs = const [
     ModeratorDashboardScreen(),
     ModeratorReportsScreen(),
-    ModeratorInboxScreen(),
+    DtsHomeScreen(),
     ModeratorAdvertisementsScreen(),
     AccountScreen(showAppBar: false),
+    ModeratorInboxScreen(),
   ];
 
   String _titleFor(int i) {
@@ -36,11 +38,13 @@ class _ModeratorShellState extends State<ModeratorShell> {
       case 1:
         return "Reports";
       case 2:
-        return "Inbox";
+        return "Documents";
       case 3:
         return "Advertisements";
       case 4:
         return "Account";
+      case 5:
+        return "Inbox";
       default:
         return "Moderator";
     }
@@ -93,13 +97,19 @@ class _ModeratorShellState extends State<ModeratorShell> {
           label: "Reports",
         ),
         AppNavItem(
-          index: 3,
+          index: 2,
+          icon: Icons.folder_outlined,
+          selectedIcon: Icons.folder,
+          label: "Docs",
+        ),
+        AppNavItem(
+          index: 4,
           icon: Icons.campaign_outlined,
           selectedIcon: Icons.campaign,
           label: "Ads",
         ),
         AppNavItem(
-          index: 4,
+          index: 5,
           icon: Icons.person_outline,
           selectedIcon: Icons.person,
           label: "Account",

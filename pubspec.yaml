@@ -47,6 +47,8 @@ dependencies:
   geocoding: any
   file_picker: any
   image_picker: any
+  mobile_scanner: any
+  crypto: any
   flutter_map: any
   latlong2: any
   url_launcher: any

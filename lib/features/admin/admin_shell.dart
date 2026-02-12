@@ -6,6 +6,7 @@ import 'admin_reports_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_advertisements_screen.dart';
 import 'admin_offices_screen.dart';
+import '../dts/presentation/dts_home_screen.dart';
 import '../resident/notifications_stub_screen.dart';
 import '../shared/widgets/notification_bell.dart';
 import '../../services/notification_service.dart';
@@ -59,6 +60,15 @@ class _AdminShellState extends State<AdminShell> {
         ),
       ),
       _AdminTab(
+        page: const DtsHomeScreen(),
+        title: "Documents",
+        destination: const NavigationDestination(
+          icon: Icon(Icons.folder_outlined),
+          selectedIcon: Icon(Icons.folder),
+          label: "Docs",
+        ),
+      ),
+      _AdminTab(
         page: const AdminAdvertisementsScreen(),
         title: "Advertisements",
         destination: const NavigationDestination(
@@ -105,6 +115,7 @@ class _AdminShellState extends State<AdminShell> {
 
     final dashboardIndex = 0;
     final reportsIndex = indexFor("Reports");
+    final docsIndex = indexFor("Documents");
     final adsIndex = indexFor("Advertisements");
     final usersIndex = indexFor("Users");
     final officesIndex = indexFor("Offices");
@@ -122,6 +133,13 @@ class _AdminShellState extends State<AdminShell> {
           icon: Icons.receipt_long_outlined,
           selectedIcon: Icons.receipt_long,
           label: "Reports",
+        ),
+      if (docsIndex >= 0)
+        AppNavItem(
+          index: docsIndex,
+          icon: Icons.folder_outlined,
+          selectedIcon: Icons.folder,
+          label: "Docs",
         ),
       if (adsIndex >= 0)
         AppNavItem(

@@ -5,6 +5,7 @@ import 'resident_home_screen.dart';
 import 'my_reports_screen.dart';
 import 'account_screen.dart';
 import 'advertisements_screen.dart';
+import '../dts/presentation/dts_home_screen.dart';
 import '../shared/widgets/app_bottom_nav_shell.dart';
 
 class ResidentShell extends StatefulWidget {
@@ -20,6 +21,7 @@ class _ResidentShellState extends State<ResidentShell> {
   final _pages = const [
     ResidentHomeScreen(),
     MyReportsScreen(),
+    DtsHomeScreen(showAppBar: true),
     AdvertisementsScreen(),
     AccountScreen(),
   ];
@@ -55,12 +57,18 @@ class _ResidentShellState extends State<ResidentShell> {
           ),
           AppNavItem(
             index: 2,
+            icon: Icons.folder_outlined,
+            selectedIcon: Icons.folder,
+            label: 'Docs',
+          ),
+          AppNavItem(
+            index: 3,
             icon: Icons.campaign_outlined,
             selectedIcon: Icons.campaign,
             label: 'Ads',
           ),
           AppNavItem(
-            index: 3,
+            index: 4,
             icon: Icons.person_outline,
             selectedIcon: Icons.person,
             label: 'Account',

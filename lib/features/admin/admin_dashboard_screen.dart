@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'admin_audit_log_screen.dart';
 import 'admin_announcements_screen.dart';
 import '../../services/permissions.dart';
+import '../dts/presentation/dts_home_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key, this.userContext});
@@ -67,6 +68,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         .where("status", whereIn: const ["submitted", "in_review", "assigned"])
         .snapshots()
         .map((s) => s.size);
+  }
+
+  Stream<int> _dtsCount(UserContext? userContext) {
+    Query<Map<String, dynamic>> query =
+        FirebaseFirestore.instance.collection("dts_documents");
+    if (userContext != null &&
+        !userContext.isSuperAdmin &&
+        userContext.officeId != null) {
+      query = query.where("currentOfficeId", isEqualTo: userContext.officeId);
+    }
+    return query.snapshots().map((s) => s.size);
+  }
+
+  Stream<int> _dtsInTransit(UserContext? userContext) {
+    Query<Map<String, dynamic>> query =
+        FirebaseFirestore.instance.collection("dts_documents");
+    if (userContext != null &&
+        !userContext.isSuperAdmin &&
+        userContext.officeId != null) {
+      query = query.where("currentOfficeId", isEqualTo: userContext.officeId);
+    }
+    query = query.where("status", isEqualTo: "IN_TRANSIT");
+    return query.snapshots().map((s) => s.size);
   }
 
   Widget _statCard({
@@ -179,6 +203,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           icon: Icons.receipt_long,
         ),
       ),
+      SizedBox(
+        width: itemWidth,
+        child: _statCard(
+          label: "Documents",
+          stream: _dtsCount(widget.userContext),
+          icon: Icons.folder,
+        ),
+      ),
       if (canManageUsers)
         SizedBox(
           width: itemWidth,
@@ -194,6 +226,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           label: "Open Reports",
           stream: _openReportsCount(),
           icon: Icons.flag,
+        ),
+      ),
+      SizedBox(
+        width: itemWidth,
+        child: _statCard(
+          label: "In Transit",
+          stream: _dtsInTransit(widget.userContext),
+          icon: Icons.local_shipping,
         ),
       ),
     ];
@@ -253,6 +293,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const AdminAnnouncementsScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _animatedItem(
+          index++,
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.folder),
+              title: const Text("Documents"),
+              subtitle: const Text("Track custody and transfers."),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const DtsHomeScreen(showAppBar: true),
                   ),
                 );
               },

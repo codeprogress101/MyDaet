@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "622631828696-dpbjff68uk3df80pgnvvu4gc9pvo6hkl.apps.googleusercontent.com",
+          "client_id": "622631828696-3bv1663vtgk5shh55n0fmqucug4te68g.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.mydaet",
-            "certificate_hash": "6e1498a07ce6a00c81fe499c3a19d8960c0936c3"
+            "certificate_hash": "73c7dc4eabd68dff4bcc805cf0ff2d383255323c"
           }
         },
         {

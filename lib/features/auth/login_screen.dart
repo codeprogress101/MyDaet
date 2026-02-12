@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -87,7 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final result =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      await _ensureUserProfile(result.user);
       if (mounted) {
         setState(() => _status = '');
         _showSuccess('Signed in with Google.');
@@ -106,6 +109,46 @@ class _LoginScreenState extends State<LoginScreen> {
     _email.dispose();
     _pass.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureUserProfile(User? user) async {
+    if (user == null) return;
+    final docRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final snap = await docRef.get();
+    final displayName = (user.displayName ?? '').trim();
+    final email = (user.email ?? '').trim();
+    if (!snap.exists) {
+      await docRef.set(
+        {
+          'uid': user.uid,
+          'role': 'resident',
+          'officeId': null,
+          'officeName': null,
+          'isActive': true,
+          'displayName': displayName,
+          'email': email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      return;
+    }
+
+    final data = snap.data() ?? {};
+    final needsName = (data['displayName'] ?? '').toString().trim().isEmpty;
+    final needsEmail = (data['email'] ?? '').toString().trim().isEmpty;
+    if (needsName || needsEmail) {
+      await docRef.set(
+        {
+          if (needsName) 'displayName': displayName,
+          if (needsEmail) 'email': email,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
   }
 
   @override
