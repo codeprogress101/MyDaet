@@ -1,3 +1,5 @@
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,8 +11,7 @@ class DtsTrackDocumentScreen extends StatefulWidget {
   const DtsTrackDocumentScreen({super.key});
 
   @override
-  State<DtsTrackDocumentScreen> createState() =>
-      _DtsTrackDocumentScreenState();
+  State<DtsTrackDocumentScreen> createState() => _DtsTrackDocumentScreenState();
 }
 
 class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
@@ -18,8 +19,13 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
   final _trackingNo = TextEditingController();
   final _pin = TextEditingController();
   bool _loading = false;
+  bool _savingToAccount = false;
+  bool _savedToAccount = false;
   String _status = '';
+  String _saveStatus = '';
   DtsTrackingResult? _result;
+  String? _lastTrackingNo;
+  String? _lastPin;
 
   @override
   void dispose() {
@@ -39,6 +45,8 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
     setState(() {
       _loading = true;
       _status = 'Checking...';
+      _saveStatus = '';
+      _savedToAccount = false;
       _result = null;
     });
     try {
@@ -48,12 +56,67 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
       );
       setState(() {
         _result = result;
+        _lastTrackingNo = tracking;
+        _lastPin = pin;
         _status = '';
       });
     } catch (e) {
       setState(() => _status = 'Lookup failed: $e');
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _saveToMyDocuments() async {
+    if (_savingToAccount) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _saveStatus = 'Please sign in first.';
+      });
+      return;
+    }
+    final trackingNo = _lastTrackingNo ?? _trackingNo.text.trim();
+    final pin = _lastPin ?? _pin.text.trim();
+    if (trackingNo.isEmpty || pin.isEmpty) {
+      setState(() {
+        _saveStatus = 'Tracking number and PIN are required.';
+      });
+      return;
+    }
+
+    setState(() {
+      _savingToAccount = true;
+      _saveStatus = 'Saving to your account...';
+    });
+
+    try {
+      await _repo.saveTrackedDocumentToAccount(
+        trackingNo: trackingNo,
+        pin: pin,
+      );
+      setState(() {
+        _savedToAccount = true;
+        _saveStatus = 'Saved. You can now view it in My Documents.';
+      });
+    } catch (e) {
+      String message = 'Unable to save document right now.';
+      if (e is FirebaseFunctionsException) {
+        if (e.code == 'failed-precondition') {
+          message = 'This document is already linked to another account.';
+        } else if (e.code == 'permission-denied') {
+          message = 'Invalid PIN. Please try again.';
+        } else if (e.code == 'not-found') {
+          message = 'Document not found.';
+        } else {
+          message = e.message ?? message;
+        }
+      }
+      setState(() {
+        _saveStatus = message;
+      });
+    } finally {
+      setState(() => _savingToAccount = false);
     }
   }
 
@@ -90,6 +153,7 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
     final baseTheme = Theme.of(context);
     final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme);
     final scheme = baseTheme.colorScheme;
+    final signedIn = FirebaseAuth.instance.currentUser != null;
 
     return Theme(
       data: baseTheme.copyWith(textTheme: textTheme),
@@ -105,8 +169,11 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
           children: [
             TextField(
               controller: _trackingNo,
-              decoration:
-                  _inputDecoration(context, 'Tracking number', Icons.qr_code),
+              decoration: _inputDecoration(
+                context,
+                'Tracking number',
+                Icons.qr_code,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -150,6 +217,36 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
             if (_result != null) ...[
               const SizedBox(height: 16),
               _TrackingResultCard(result: _result!),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: _savingToAccount || _savedToAccount || !signedIn
+                      ? null
+                      : _saveToMyDocuments,
+                  icon: Icon(
+                    _savedToAccount ? Icons.check_circle : Icons.bookmark_add,
+                  ),
+                  label: Text(
+                    !signedIn
+                        ? 'Sign in to save'
+                        : _savedToAccount
+                        ? 'Saved to My Documents'
+                        : (_savingToAccount
+                              ? 'Saving...'
+                              : 'Save to My Documents'),
+                  ),
+                ),
+              ),
+              if (_saveStatus.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _saveStatus,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
             ],
           ],
         ),
@@ -180,34 +277,34 @@ class _TrackingResultCard extends StatelessWidget {
         children: [
           Text(
             result.trackingNo,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           if (result.title != null) ...[
             const SizedBox(height: 4),
-            Text(
-              result.title!,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(result.title!, style: Theme.of(context).textTheme.bodyMedium),
           ],
           const SizedBox(height: 8),
-          _StatusChip(label: DtsStatusHelper.label(result.status), color: statusColor),
+          _StatusChip(
+            label: DtsStatusHelper.label(result.status),
+            color: statusColor,
+          ),
           const SizedBox(height: 8),
           if (result.currentOfficeName != null)
             Text(
               'Current office: ${result.currentOfficeName}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
             ),
           if (result.instructions != null) ...[
             const SizedBox(height: 6),
             Text(
               result.instructions!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
             ),
           ],
         ],

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../models/office.dart';
 import '../../../services/user_context_service.dart';
 import '../../../services/permissions.dart';
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 import 'dts_document_detail_screen.dart';
 import '../../shared/widgets/search_field.dart';
@@ -18,7 +19,8 @@ class DtsCreateDocumentScreen extends StatefulWidget {
   final String qrCode;
 
   @override
-  State<DtsCreateDocumentScreen> createState() => _DtsCreateDocumentScreenState();
+  State<DtsCreateDocumentScreen> createState() =>
+      _DtsCreateDocumentScreenState();
 }
 
 class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
@@ -27,6 +29,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
   final _title = TextEditingController();
   final _source = TextEditingController();
   final _officeController = TextEditingController();
+  final _residentUid = TextEditingController();
   final _picker = ImagePicker();
 
   final _docTypes = const [
@@ -38,11 +41,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
     'Other',
   ];
 
-  final _confidentialities = const [
-    'public',
-    'internal',
-    'confidential',
-  ];
+  final _confidentialities = const ['public', 'internal', 'confidential'];
 
   String _docType = 'Request';
   String _confidentiality = 'public';
@@ -57,6 +56,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
 
   bool _saving = false;
   String _status = '';
+  bool _saveToResidentAccount = false;
 
   late final Future<UserContext?> _contextFuture;
   UserContext? _userContext;
@@ -78,6 +78,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
     _title.dispose();
     _source.dispose();
     _officeController.dispose();
+    _residentUid.dispose();
     super.dispose();
   }
 
@@ -157,11 +158,11 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                 final filtered = query.trim().isEmpty
                     ? _offices
                     : _offices
-                        .where(
-                          (o) =>
-                              _normalize(o.name).contains(_normalize(query)),
-                        )
-                        .toList();
+                          .where(
+                            (o) =>
+                                _normalize(o.name).contains(_normalize(query)),
+                          )
+                          .toList();
 
                 return SafeArea(
                   child: Padding(
@@ -235,16 +236,16 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                                 const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final office = filtered[index];
-                              final isSelected =
-                                  office.id == _selectedOfficeId;
+                              final isSelected = office.id == _selectedOfficeId;
                               return ListTile(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   side: BorderSide(color: border),
                                 ),
                                 tileColor: isSelected
-                                    ? baseTheme.colorScheme.primary
-                                        .withValues(alpha: 0.08)
+                                    ? baseTheme.colorScheme.primary.withValues(
+                                        alpha: 0.08,
+                                      )
                                     : null,
                                 title: Text(
                                   office.name,
@@ -254,13 +255,13 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                                 trailing: isSelected
                                     ? Icon(
                                         Icons.check_circle,
-                                        color:
-                                            baseTheme.colorScheme.primary,
+                                        color: baseTheme.colorScheme.primary,
                                       )
-                                    : const Icon(Icons.circle_outlined,
-                                        color: Colors.transparent),
-                                onTap: () =>
-                                    Navigator.of(context).pop(office),
+                                    : const Icon(
+                                        Icons.circle_outlined,
+                                        color: Colors.transparent,
+                                      ),
+                                onTap: () => Navigator.of(context).pop(office),
                               );
                             },
                           ),
@@ -295,7 +296,17 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
   }
 
   Future<void> _pickDueDate() async {
-    final now = DateTime.now();
+    DateTime now;
+    try {
+      now = toManila(await _repo.getServerNowUtc());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _status = 'Unable to get online time. Please try again.';
+      });
+      return;
+    }
+    if (!mounted) return;
     final picked = await showDatePicker(
       context: context,
       initialDate: _dueAt ?? now,
@@ -315,6 +326,13 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
     }
     if (_selectedOfficeId == null || _selectedOfficeId!.isEmpty) {
       setState(() => _status = 'Select an office.');
+      return;
+    }
+    final residentUid = _residentUid.text.trim();
+    if (_saveToResidentAccount && residentUid.isEmpty) {
+      setState(
+        () => _status = 'Resident UID is required when saving to account.',
+      );
       return;
     }
     if (_coverPhoto == null) {
@@ -338,7 +356,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
         sourceName: _source.text.trim().isEmpty ? null : _source.text.trim(),
         dueAt: _dueAt,
         userContext: userContext,
-        submittedByUid: null,
+        submittedByUid: _saveToResidentAccount ? residentUid : null,
       );
 
       setState(() => _status = 'Uploading cover photo...');
@@ -353,7 +371,10 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
       );
 
       if (!mounted) return;
-      await _showSuccess(result);
+      await _showSuccess(
+        result,
+        _saveToResidentAccount && residentUid.isNotEmpty,
+      );
     } catch (e) {
       if (e is FirebaseException && e.code == 'permission-denied') {
         setState(() {
@@ -368,7 +389,10 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
     }
   }
 
-  Future<void> _showSuccess(DtsCreateResult result) async {
+  Future<void> _showSuccess(
+    DtsCreateResult result,
+    bool savedToResident,
+  ) async {
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -385,6 +409,10 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
               const Text(
                 'Write the tracking number and PIN on the acknowledgment stub.',
               ),
+              if (savedToResident) ...[
+                const SizedBox(height: 8),
+                const Text('Saved to resident account.'),
+              ],
             ],
           ),
           actions: [
@@ -461,9 +489,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
           }
           final userContext = snapshot.data;
           if (userContext == null || !userContext.isStaff) {
-            return const Scaffold(
-              body: Center(child: Text('Not authorized.')),
-            );
+            return const Scaffold(body: Center(child: Text('Not authorized.')));
           }
 
           return Scaffold(
@@ -486,17 +512,17 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                 TextField(
                   controller: _title,
                   enabled: !_saving,
-                  decoration:
-                      _inputDecoration(context, 'Title', Icons.title),
+                  decoration: _inputDecoration(context, 'Title', Icons.title),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: _docType,
                   items: _docTypes
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
-                  onChanged: _saving ? null : (v) => setState(() => _docType = v!),
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() => _docType = v!),
                   decoration: _inputDecoration(
                     context,
                     'Document type',
@@ -517,10 +543,12 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                 DropdownButtonFormField<String>(
                   value: _confidentiality,
                   items: _confidentialities
-                      .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c.toUpperCase()),
-                          ))
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c.toUpperCase()),
+                        ),
+                      )
                       .toList(),
                   onChanged: _saving
                       ? null
@@ -551,10 +579,40 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                       context,
                       'Office',
                       Icons.business_outlined,
-                    ).copyWith(
-                      suffixIcon: const Icon(Icons.expand_more),
-                    ),
+                    ).copyWith(suffixIcon: const Icon(Icons.expand_more)),
                   ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  value: _saveToResidentAccount,
+                  onChanged: _saving
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _saveToResidentAccount = value;
+                          });
+                        },
+                  title: const Text('Save to resident account'),
+                  subtitle: const Text(
+                    'Optional: resident can view tracking in My Documents.',
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (_saveToResidentAccount) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _residentUid,
+                    enabled: !_saving,
+                    decoration:
+                        _inputDecoration(
+                          context,
+                          'Resident UID',
+                          Icons.person_pin_outlined,
+                        ).copyWith(
+                          helperText:
+                              'Ask resident to open Account and provide User ID.',
+                        ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _pickDueDate,
@@ -632,9 +690,9 @@ class _CoverPhotoPicker extends StatelessWidget {
       children: [
         Text(
           'Cover photo (QR + stamp visible)',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -651,8 +709,8 @@ class _CoverPhotoPicker extends StatelessWidget {
                     child: Text(
                       'Tap to capture cover photo',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                   )
                 : ClipRRect(

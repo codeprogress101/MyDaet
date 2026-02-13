@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../features/admin/admin_report_detail_screen.dart';
+import '../features/dts/presentation/dts_document_detail_screen.dart';
 import '../features/moderator/moderator_report_detail_screen.dart';
 import '../features/resident/announcements_screen.dart';
 import '../features/resident/report_detail_screen.dart';
@@ -22,6 +23,7 @@ class NotificationService {
   static String? _cachedToken;
   static String? _pendingReportId;
   static String? _pendingAnnouncementId;
+  static String? _pendingDtsDocId;
 
   static Future<void> init() async {
     try {
@@ -77,6 +79,10 @@ class NotificationService {
         _navigateToAnnouncement(_pendingAnnouncementId!);
         _pendingAnnouncementId = null;
       }
+      if (user != null && _pendingDtsDocId != null) {
+        _navigateToDtsDocument(_pendingDtsDocId!);
+        _pendingDtsDocId = null;
+      }
     });
   }
 
@@ -103,14 +109,14 @@ class NotificationService {
       _navigateToAnnouncement(_pendingAnnouncementId!);
       _pendingAnnouncementId = null;
     }
+    if (_pendingDtsDocId != null) {
+      _navigateToDtsDocument(_pendingDtsDocId!);
+      _pendingDtsDocId = null;
+    }
   }
 
   static Future<void> _requestPermission() async {
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await _messaging.requestPermission(alert: true, badge: true, sound: true);
   }
 
   static Future<void> _saveToken(String? token) async {
@@ -124,15 +130,12 @@ class NotificationService {
           .doc(user.uid)
           .collection('fcmTokens')
           .doc(token)
-          .set(
-        {
-          'token': token,
-          'platform': defaultTargetPlatform.name,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+          .set({
+            'token': token,
+            'platform': defaultTargetPlatform.name,
+            'updatedAt': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('NotificationService: failed to save FCM token: $e');
     }
@@ -140,9 +143,11 @@ class NotificationService {
 
   static Future<void> _handleMessage(RemoteMessage message) async {
     final type = (message.data['type'] ?? '').toString();
-    final announcementId =
-        (message.data['announcementId'] ?? '').toString().trim();
+    final announcementId = (message.data['announcementId'] ?? '')
+        .toString()
+        .trim();
     final reportId = (message.data['reportId'] ?? '').toString().trim();
+    final dtsDocId = (message.data['dtsDocId'] ?? '').toString().trim();
 
     if (type == 'announcement_published' && announcementId.isNotEmpty) {
       final user = FirebaseAuth.instance.currentUser;
@@ -155,6 +160,16 @@ class NotificationService {
       return;
     }
 
+    if (type == 'dts_movement' && dtsDocId.isNotEmpty) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _pendingDtsDocId = dtsDocId;
+        return;
+      }
+      _navigateToDtsDocument(dtsDocId);
+      return;
+    }
+
     if (reportId.isEmpty) return;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -164,6 +179,24 @@ class NotificationService {
     }
 
     _navigateToReport(reportId);
+  }
+
+  static Future<void> _navigateToDtsDocument(String docId) async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) {
+      _pendingDtsDocId = docId;
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _pendingDtsDocId = docId;
+      return;
+    }
+
+    navigator.push(
+      MaterialPageRoute(builder: (_) => DtsDocumentDetailScreen(docId: docId)),
+    );
   }
 
   static Future<void> _navigateToReport(String reportId) async {
@@ -195,9 +228,7 @@ class NotificationService {
       screen = ReportDetailScreen(reportId: reportId);
     }
 
-    navigator.push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    navigator.push(MaterialPageRoute(builder: (_) => screen));
   }
 
   static Future<void> _navigateToAnnouncement(String announcementId) async {
@@ -209,9 +240,8 @@ class NotificationService {
 
     navigator.push(
       MaterialPageRoute(
-        builder: (_) => AnnouncementDetailScreen(
-          announcementId: announcementId,
-        ),
+        builder: (_) =>
+            AnnouncementDetailScreen(announcementId: announcementId),
       ),
     );
   }

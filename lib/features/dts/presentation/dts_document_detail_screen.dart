@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/user_context_service.dart';
 import '../../../services/permissions.dart';
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 import '../domain/dts_document.dart';
 import '../domain/dts_timeline_event.dart';
@@ -28,6 +29,7 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
   final _userContextService = UserContextService();
   late final Future<UserContext?> _contextFuture;
   final Map<String, Future<String>> _nameCache = {};
+  final Map<String, Future<String?>> _qrImageCache = {};
 
   Future<String> _resolveUserName(String uid) {
     if (_nameCache.containsKey(uid)) return _nameCache[uid]!;
@@ -36,14 +38,22 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         .doc(uid)
         .get()
         .then((snap) {
-      final data = snap.data() ?? {};
-      final displayName = (data['displayName'] ?? '').toString().trim();
-      final email = (data['email'] ?? '').toString().trim();
-      if (displayName.isNotEmpty) return displayName;
-      if (email.isNotEmpty) return email;
-      return uid;
-    }).catchError((_) => uid);
+          final data = snap.data() ?? {};
+          final displayName = (data['displayName'] ?? '').toString().trim();
+          final email = (data['email'] ?? '').toString().trim();
+          if (displayName.isNotEmpty) return displayName;
+          if (email.isNotEmpty) return email;
+          return uid;
+        })
+        .catchError((_) => uid);
     _nameCache[uid] = future;
+    return future;
+  }
+
+  Future<String?> _resolveQrImageUrl(String qrCode) {
+    if (_qrImageCache.containsKey(qrCode)) return _qrImageCache[qrCode]!;
+    final future = _repo.resolveQrImageUrl(qrCode);
+    _qrImageCache[qrCode] = future;
     return future;
   }
 
@@ -53,17 +63,56 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
     _contextFuture = _userContextService.getCurrent();
   }
 
-  Future<void> _confirmReceipt(
+  bool _canReceiveTransfer(
     UserContext userContext,
-    DtsDocument doc,
-  ) async {
+    DtsPendingTransfer? pending,
+  ) {
+    if (pending == null) return false;
+
+    final officeIdMatch =
+        userContext.officeId != null &&
+        userContext.officeId == pending.toOfficeId;
+    final officeNameMatch =
+        userContext.officeName != null &&
+        pending.toOfficeName != null &&
+        userContext.officeName!.trim().toLowerCase() ==
+            pending.toOfficeName!.trim().toLowerCase();
+    final recipientMatch =
+        pending.toUid != null && pending.toUid == userContext.uid;
+
+    return officeIdMatch || officeNameMatch || recipientMatch;
+  }
+
+  bool _canCancelTransfer(UserContext userContext, DtsDocument doc) {
+    final pending = doc.pendingTransfer;
+    if (pending == null || !userContext.isStaff) return false;
+    if (userContext.isSuperAdmin) return true;
+
+    final initiatedByCurrentUser =
+        pending.fromUid != null && pending.fromUid == userContext.uid;
+    final fromOfficeById =
+        userContext.officeId != null &&
+        userContext.officeId == pending.fromOfficeId;
+    final fromOfficeByName =
+        userContext.officeName != null &&
+        doc.currentOfficeName != null &&
+        userContext.officeName!.trim().toLowerCase() ==
+            doc.currentOfficeName!.trim().toLowerCase();
+
+    return initiatedByCurrentUser || fromOfficeById || fromOfficeByName;
+  }
+
+  Future<void> _confirmReceipt(UserContext userContext, DtsDocument doc) async {
     final pending = doc.pendingTransfer;
     if (pending == null) return;
-    if (userContext.officeId == null ||
-        userContext.officeId != pending.toOfficeId) {
+    if (!_canReceiveTransfer(userContext, pending)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('You are not the receiving office.')),
+          const SnackBar(
+            content: Text(
+              'You are not the receiving office for this transfer.',
+            ),
+          ),
         );
       }
       return;
@@ -77,15 +126,63 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         receiverUid: userContext.uid,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt confirmed.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Receipt confirmed.')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _cancelTransfer(UserContext userContext, DtsDocument doc) async {
+    final pending = doc.pendingTransfer;
+    if (pending == null) return;
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Cancel transfer?'),
+          content: const Text(
+            'This will stop the in-transit transfer and return custody to the source office.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Keep transfer'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Cancel transfer'),
+            ),
+          ],
         );
+      },
+    );
+    if (shouldCancel != true) return;
+
+    try {
+      await _repo.cancelTransfer(
+        docId: doc.id,
+        actorUid: userContext.uid,
+        fallbackOfficeId: doc.currentOfficeId,
+        fallbackOfficeName:
+            doc.currentOfficeName ?? userContext.officeName ?? 'Office',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Transfer cancelled.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
@@ -110,21 +207,23 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
     );
     if (selected == null) return;
     try {
+      final actorName = await _resolveUserName(userContext.uid);
       await _repo.updateStatus(
         docId: doc.id,
         status: selected,
         actorUid: userContext.uid,
+        actorName: actorName,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status updated.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Status updated.')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
       }
     }
   }
@@ -133,16 +232,71 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
     final result = await showDialog<_NoteInputResult>(
       context: context,
       builder: (context) {
-        return _AddNoteDialog(repo: _repo, docId: doc.id);
+        return _AddNoteDialog(
+          repo: _repo,
+          docId: doc.id,
+          title: 'Add note',
+          hintText: 'Enter note...',
+          confirmText: 'Save',
+        );
       },
     );
     if (result == null) return;
-    await _repo.addNote(
-      docId: doc.id,
-      actorUid: userContext.uid,
-      notes: result.notes,
-      attachments: result.attachments,
+    try {
+      await _repo.addNote(
+        docId: doc.id,
+        actorUid: userContext.uid,
+        notes: result.notes,
+        attachments: result.attachments,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Note added.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add note: $e')));
+    }
+  }
+
+  Future<void> _rejectTransfer(UserContext userContext, DtsDocument doc) async {
+    final pending = doc.pendingTransfer;
+    if (pending == null) return;
+
+    final result = await showDialog<_NoteInputResult>(
+      context: context,
+      builder: (context) {
+        return _AddNoteDialog(
+          repo: _repo,
+          docId: doc.id,
+          title: 'Reject transfer',
+          hintText: 'Why is this transfer rejected?',
+          confirmText: 'Reject transfer',
+          requireNote: true,
+        );
+      },
     );
+    if (result == null) return;
+
+    try {
+      await _repo.rejectTransfer(
+        docId: doc.id,
+        actorUid: userContext.uid,
+        reason: result.notes,
+        attachments: result.attachments,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Transfer rejected.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to reject transfer: $e')));
+    }
   }
 
   void _initiateTransfer(DtsDocument doc) {
@@ -178,9 +332,22 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
+                final err = snapshot.error;
+                String message = 'Unable to open this document.';
+                if (err is FirebaseException &&
+                    (err.code == 'permission-denied' ||
+                        err.code == 'unauthenticated')) {
+                  message =
+                      'You cannot open this document. This transfer may be assigned to another office.';
+                }
                 return Scaffold(
                   appBar: AppBar(title: const Text('Document Detail')),
-                  body: Center(child: Text('Error: ${snapshot.error}')),
+                  body: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(message, textAlign: TextAlign.center),
+                    ),
+                  ),
                 );
               }
               if (!snapshot.hasData) {
@@ -202,11 +369,19 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
               final pending = doc.pendingTransfer;
 
               final ctx = userContext;
-              final canConfirm = ctx != null &&
-                  ctx.isStaff &&
+              final staffContext = (ctx != null && ctx.isStaff) ? ctx : null;
+              final isStaff = staffContext != null;
+              final receiverLocked =
                   pending != null &&
-                  ctx.officeId != null &&
-                  ctx.officeId == pending.toOfficeId;
+                  staffContext != null &&
+                  _canReceiveTransfer(staffContext, pending);
+              final canCancelTransfer =
+                  staffContext != null && _canCancelTransfer(staffContext, doc);
+              final canViewPin =
+                  doc.trackingPin != null &&
+                  doc.trackingPin!.trim().isNotEmpty &&
+                  ctx != null &&
+                  (ctx.isStaff || doc.submittedByUid == ctx.uid);
 
               return Scaffold(
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -218,11 +393,23 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                 body: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(
-                      doc.title,
-                      style: textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            doc.title,
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (doc.qrCode.trim().isNotEmpty)
+                          _QrThumbButton(
+                            qrCode: doc.qrCode,
+                            imageUrlFuture: _resolveQrImageUrl(doc.qrCode),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -238,6 +425,11 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                           label: doc.docType,
                           color: scheme.onSurface.withValues(alpha: 0.7),
                         ),
+                        if (canViewPin)
+                          _MetaChip(
+                            label: 'PIN ${doc.trackingPin!}',
+                            color: scheme.primary,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -248,11 +440,20 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                           coverUrl,
                           height: 200,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              const SizedBox.shrink(),
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     if (coverUrl != null) const SizedBox(height: 12),
+                    if (doc.qrCode.trim().isNotEmpty)
+                      _InfoRow(label: 'QR Code', value: doc.qrCode),
+                    _InfoRow(label: 'Tracking No', value: doc.trackingNo),
+                    if (ctx != null && ctx.isStaff)
+                      _InfoRow(
+                        label: 'PIN',
+                        value: doc.trackingPin?.trim().isNotEmpty == true
+                            ? doc.trackingPin!
+                            : 'Not stored (legacy record)',
+                      ),
                     _InfoRow(
                       label: 'Office',
                       value: doc.currentOfficeName ?? doc.currentOfficeId,
@@ -262,47 +463,73 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                       value: doc.confidentiality.toUpperCase(),
                     ),
                     if (doc.sourceName != null)
-                      _InfoRow(
-                        label: 'Source',
-                        value: doc.sourceName!,
-                      ),
+                      _InfoRow(label: 'Source', value: doc.sourceName!),
                     if (pending != null)
                       _InfoRow(
                         label: 'Pending transfer',
                         value:
-                            'To ${pending.toOfficeId}${pending.toUid != null ? ' (user)' : ''}',
+                            'To ${pending.toOfficeName ?? pending.toOfficeId}${pending.toUid != null ? ' (specific recipient)' : ''}',
                       ),
                     const SizedBox(height: 16),
-                    if (ctx != null && ctx.isStaff)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () => _initiateTransfer(doc),
-                            icon: const Icon(Icons.swap_horiz),
-                            label: const Text('Transfer'),
+                    if (isStaff)
+                      if (receiverLocked) ...[
+                        Text(
+                          'This document is in transit to your office. Confirm or reject receipt to continue.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.7),
                           ),
-                          if (canConfirm)
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
                             FilledButton.icon(
-                              onPressed: () => _confirmReceipt(ctx, doc),
+                              onPressed: () =>
+                                  _confirmReceipt(staffContext, doc),
                               icon: const Icon(Icons.check_circle_outline),
                               label: const Text('Confirm receipt'),
                             ),
-                          OutlinedButton.icon(
-                            onPressed: () => _updateStatus(ctx, doc),
-                            icon: const Icon(Icons.update),
-                            label: const Text('Update status'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _addNote(ctx, doc),
-                            icon: const Icon(Icons.note_add_outlined),
-                            label: const Text('Add note'),
-                          ),
-                        ],
-                      ),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  _rejectTransfer(staffContext, doc),
+                              icon: const Icon(Icons.close),
+                              label: const Text('Reject'),
+                            ),
+                          ],
+                        ),
+                      ] else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (pending == null)
+                              OutlinedButton.icon(
+                                onPressed: () => _initiateTransfer(doc),
+                                icon: const Icon(Icons.swap_horiz),
+                                label: const Text('Transfer'),
+                              ),
+                            if (pending != null && canCancelTransfer)
+                              FilledButton.tonalIcon(
+                                onPressed: () =>
+                                    _cancelTransfer(staffContext, doc),
+                                icon: const Icon(Icons.cancel_outlined),
+                                label: const Text('Cancel transfer'),
+                              ),
+                            OutlinedButton.icon(
+                              onPressed: () => _updateStatus(staffContext, doc),
+                              icon: const Icon(Icons.update),
+                              label: const Text('Update status'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => _addNote(staffContext, doc),
+                              icon: const Icon(Icons.note_add_outlined),
+                              label: const Text('Add note'),
+                            ),
+                          ],
+                        ),
                     const SizedBox(height: 16),
-                    if (ctx != null && ctx.isStaff) ...[
+                    if (isStaff) ...[
                       Text(
                         'Timeline',
                         style: textTheme.titleMedium?.copyWith(
@@ -326,25 +553,26 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                             return Text(
                               'No timeline events yet.',
                               style: textTheme.bodySmall?.copyWith(
-                                color:
-                                    scheme.onSurface.withValues(alpha: 0.6),
+                                color: scheme.onSurface.withValues(alpha: 0.6),
                               ),
                             );
                           }
-                        return Column(
-                          children: events
-                              .map(
-                                (event) => _TimelineTile(
-                                  event: event,
-                                  nameFuture: event.byUid == null
-                                      ? null
-                                      : _resolveUserName(event.byUid!),
-                                ),
-                              )
-                              .toList(),
-                        );
-                      },
-                    ),
+                          return Column(
+                            children: events
+                                .map(
+                                  (event) => _TimelineTile(
+                                    event: event,
+                                    nameFuture: event.byName != null
+                                        ? Future.value(event.byName)
+                                        : event.byUid == null
+                                        ? null
+                                        : _resolveUserName(event.byUid!),
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
                     ] else ...[
                       Text(
                         'Timeline updates are visible to staff only.',
@@ -360,6 +588,116 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _QrThumbButton extends StatelessWidget {
+  const _QrThumbButton({required this.qrCode, required this.imageUrlFuture});
+
+  final String qrCode;
+  final Future<String?> imageUrlFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FutureBuilder<String?>(
+      future: imageUrlFuture,
+      builder: (context, snap) {
+        final imageUrl = snap.data;
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: imageUrl == null || imageUrl.isEmpty
+              ? null
+              : () {
+                  showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => Dialog(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              qrCode,
+                              style: Theme.of(dialogContext)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: 280,
+                              height: 280,
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const Center(
+                                  child: Text('Unable to load QR image.'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                                child: const Text('Close'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+          child: Container(
+            width: 54,
+            height: 54,
+            margin: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.65),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(imageUrl, fit: BoxFit.cover),
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: scheme.surface.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.open_in_full,
+                              size: 12,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Icon(
+                      snap.connectionState == ConnectionState.waiting
+                          ? Icons.hourglass_top
+                          : Icons.qr_code_2,
+                      color: scheme.onSurface.withValues(alpha: 0.7),
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -383,16 +721,16 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                color: scheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -441,9 +779,7 @@ class _MetaChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: Theme.of(context).dividerColor,
-        ),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Text(
         label,
@@ -458,10 +794,7 @@ class _MetaChip extends StatelessWidget {
 }
 
 class _TimelineTile extends StatelessWidget {
-  const _TimelineTile({
-    required this.event,
-    this.nameFuture,
-  });
+  const _TimelineTile({required this.event, this.nameFuture});
 
   final DtsTimelineEvent event;
   final Future<String>? nameFuture;
@@ -507,8 +840,8 @@ class _TimelineTile extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   if (nameFuture != null)
@@ -518,7 +851,8 @@ class _TimelineTile extends StatelessWidget {
                         final name = snap.data ?? 'Unknown';
                         return Text(
                           'By $name',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
                                 color: scheme.onSurface.withValues(alpha: 0.7),
                               ),
                         );
@@ -529,8 +863,8 @@ class _TimelineTile extends StatelessWidget {
                     Text(
                       timeLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.5),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.5),
+                      ),
                     ),
                   ],
                 ],
@@ -547,17 +881,25 @@ class _NoteInputResult {
   final String notes;
   final List<Map<String, dynamic>> attachments;
 
-  const _NoteInputResult({
-    required this.notes,
-    required this.attachments,
-  });
+  const _NoteInputResult({required this.notes, required this.attachments});
 }
 
 class _AddNoteDialog extends StatefulWidget {
-  const _AddNoteDialog({required this.repo, required this.docId});
+  const _AddNoteDialog({
+    required this.repo,
+    required this.docId,
+    required this.title,
+    required this.hintText,
+    required this.confirmText,
+    this.requireNote = false,
+  });
 
   final DtsRepository repo;
   final String docId;
+  final String title;
+  final String hintText;
+  final String confirmText;
+  final bool requireNote;
 
   @override
   State<_AddNoteDialog> createState() => _AddNoteDialogState();
@@ -590,6 +932,11 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
       );
       if (!mounted) return;
       setState(() => _attachments.add(uploaded));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Attachment upload failed: $e')));
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -597,25 +944,24 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
 
   void _submit() {
     final note = _controller.text.trim();
+    if (widget.requireNote && note.isEmpty) return;
     if (note.isEmpty && _attachments.isEmpty) return;
-    Navigator.of(context).pop(
-      _NoteInputResult(notes: note, attachments: _attachments),
-    );
+    Navigator.of(
+      context,
+    ).pop(_NoteInputResult(notes: note, attachments: _attachments));
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add note'),
+      title: Text(widget.title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _controller,
             maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Enter note...',
-            ),
+            decoration: InputDecoration(hintText: widget.hintText),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -625,8 +971,8 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
               _uploading
                   ? 'Uploading...'
                   : _attachments.isEmpty
-                      ? 'Add attachment'
-                      : 'Add another attachment',
+                  ? 'Add attachment'
+                  : 'Add another attachment',
             ),
           ),
         ],
@@ -636,36 +982,12 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Save'),
-        ),
+        FilledButton(onPressed: _submit, child: Text(widget.confirmText)),
       ],
     );
   }
 }
 
 String _formatDateTime(DateTime dt) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  int hour = dt.hour;
-  final minute = dt.minute.toString().padLeft(2, '0');
-  final ampm = hour >= 12 ? 'PM' : 'AM';
-  if (hour == 0) hour = 12;
-  if (hour > 12) hour -= 12;
-  final m = months[dt.month - 1];
-  final day = dt.day.toString().padLeft(2, '0');
-  return '$m $day, ${dt.year} • $hour:$minute $ampm';
+  return formatManilaDateTime(dt, includeZone: true);
 }

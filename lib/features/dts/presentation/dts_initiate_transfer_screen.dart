@@ -19,8 +19,7 @@ class DtsInitiateTransferScreen extends StatefulWidget {
       _DtsInitiateTransferScreenState();
 }
 
-class _DtsInitiateTransferScreenState
-    extends State<DtsInitiateTransferScreen> {
+class _DtsInitiateTransferScreenState extends State<DtsInitiateTransferScreen> {
   final _repo = DtsRepository();
   final _userContextService = UserContextService();
   final _directoryService = UserDirectoryService();
@@ -77,6 +76,12 @@ class _DtsInitiateTransferScreenState
       setState(() => _status = 'Select a destination office.');
       return;
     }
+    final selectedOffice = _offices.where(
+      (office) => office.id == _selectedOfficeId,
+    );
+    final selectedOfficeName = selectedOffice.isEmpty
+        ? null
+        : selectedOffice.first.name;
 
     setState(() {
       _saving = true;
@@ -88,7 +93,9 @@ class _DtsInitiateTransferScreenState
         docId: widget.document.id,
         fromOfficeId: widget.document.currentOfficeId,
         toOfficeId: _selectedOfficeId!,
+        toOfficeName: selectedOfficeName,
         toUid: _selectedRecipient?.uid,
+        previousStatus: widget.document.status,
         actorUid: userContext.uid,
       );
       if (!mounted) return;
@@ -121,9 +128,7 @@ class _DtsInitiateTransferScreenState
           }
           final userContext = snapshot.data;
           if (userContext == null || !userContext.isStaff) {
-            return const Scaffold(
-              body: Center(child: Text('Not authorized.')),
-            );
+            return const Scaffold(body: Center(child: Text('Not authorized.')));
           }
 
           return Scaffold(
@@ -191,8 +196,7 @@ class _DtsInitiateTransferScreenState
                         return Text(
                           'No recipients available for selected office.',
                           style: textTheme.bodySmall?.copyWith(
-                            color:
-                                scheme.onSurface.withValues(alpha: 0.6),
+                            color: scheme.onSurface.withValues(alpha: 0.6),
                           ),
                         );
                       }
@@ -214,8 +218,9 @@ class _DtsInitiateTransferScreenState
                             ? null
                             : (v) {
                                 setState(() {
-                                  _selectedRecipient = users
-                                      .firstWhere((u) => u.uid == v);
+                                  _selectedRecipient = users.firstWhere(
+                                    (u) => u.uid == v,
+                                  );
                                 });
                               },
                         decoration: InputDecoration(

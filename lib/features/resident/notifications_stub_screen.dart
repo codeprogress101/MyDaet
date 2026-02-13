@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../dts/presentation/dts_document_detail_screen.dart';
 import '../shared/widgets/empty_state.dart';
+import '../shared/timezone_utils.dart';
 import 'announcements_screen.dart';
 import 'report_detail_screen.dart';
 
@@ -66,7 +68,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   }
 
                   final isOffline = snapshot.data!.metadata.isFromCache;
-                  final docs = snapshot.data!.docs;
+                  final docs = snapshot.data!.docs
+                      .where((doc) => doc.data()['read'] != true)
+                      .toList();
                   if (docs.isEmpty) {
                     return const EmptyState(
                       title: 'No notifications yet',
@@ -86,21 +90,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       final dataIndex = isOffline ? index - 1 : index;
                       final doc = docs[dataIndex];
                       final data = doc.data();
-                      final title = (data['title'] ?? 'Notification').toString();
+                      final title = (data['title'] ?? 'Notification')
+                          .toString();
                       final body = (data['body'] ?? '').toString();
-                      final read = data['read'] == true;
                       final type = (data['type'] ?? '').toString();
-                      final reportId = (data['reportId'] ?? '').toString().trim();
-                      final announcementId =
-                          (data['announcementId'] ?? '').toString().trim();
+                      final reportId = (data['reportId'] ?? '')
+                          .toString()
+                          .trim();
+                      final dtsDocId = (data['dtsDocId'] ?? '')
+                          .toString()
+                          .trim();
+                      final announcementId = (data['announcementId'] ?? '')
+                          .toString()
+                          .trim();
                       final createdAt = data['createdAt'] as Timestamp?;
                       final createdLabel = createdAt != null
                           ? _formatDateTime(createdAt.toDate())
                           : 'Just now';
 
-                      final icon = type == 'announcement_published'
-                          ? Icons.campaign
-                          : Icons.notifications;
+                      final icon = switch (type) {
+                        'announcement_published' => Icons.campaign,
+                        'dts_movement' => Icons.folder_open,
+                        _ => Icons.notifications,
+                      };
 
                       return Card(
                         elevation: 0,
@@ -109,37 +121,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           side: BorderSide(color: border),
                         ),
                         child: ListTile(
-                          leading: Icon(
-                            read ? Icons.notifications_none : icon,
-                            color: read ? dark.withValues(alpha: 0.4) : accent,
-                          ),
+                          leading: Icon(icon, color: accent),
                           title: Text(
                             title,
                             style: textTheme.bodyLarge?.copyWith(
-                              fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           subtitle: Text(
-                            body.isEmpty ? createdLabel : '$body\n$createdLabel',
+                            body.isEmpty
+                                ? createdLabel
+                                : '$body\n$createdLabel',
                           ),
                           isThreeLine: body.isNotEmpty,
-                          trailing: read
-                              ? null
-                              : Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: accent,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
                           onTap: () async {
-                            if (!read) {
-                              await doc.reference.set(
-                                {'read': true},
-                                SetOptions(merge: true),
-                              );
-                            }
+                            await doc.reference.set({
+                              'read': true,
+                            }, SetOptions(merge: true));
+
                             if (type == 'announcement_published' &&
                                 announcementId.isNotEmpty) {
                               if (!context.mounted) return;
@@ -152,13 +151,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               );
                               return;
                             }
+
+                            if (dtsDocId.isNotEmpty) {
+                              if (!context.mounted) return;
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      DtsDocumentDetailScreen(docId: dtsDocId),
+                                ),
+                              );
+                              return;
+                            }
+
                             if (reportId.isNotEmpty) {
                               if (!context.mounted) return;
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => ReportDetailScreen(
-                                    reportId: reportId,
-                                  ),
+                                  builder: (_) =>
+                                      ReportDetailScreen(reportId: reportId),
                                 ),
                               );
                             }
@@ -175,26 +185,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 }
 
 String _formatDateTime(DateTime dt) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  final m = months[dt.month - 1];
-  final day = dt.day.toString().padLeft(2, '0');
-  final year = dt.year.toString();
-  final hour = dt.hour.toString().padLeft(2, '0');
-  final minute = dt.minute.toString().padLeft(2, '0');
-  return '$m $day, $year • $hour:$minute';
+  return formatManilaDateTime(dt, includeZone: true);
 }
 
 class _OfflineBanner extends StatelessWidget {

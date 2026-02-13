@@ -4,6 +4,7 @@ class DtsTimelineEvent {
   final String id;
   final String type;
   final String? byUid;
+  final String? byName;
   final String? notes;
   final String? fromOfficeId;
   final String? toOfficeId;
@@ -14,6 +15,7 @@ class DtsTimelineEvent {
     required this.id,
     required this.type,
     this.byUid,
+    this.byName,
     this.notes,
     this.fromOfficeId,
     this.toOfficeId,
@@ -39,6 +41,9 @@ class DtsTimelineEvent {
       byUid: (data['byUid'] ?? '').toString().trim().isEmpty
           ? null
           : (data['byUid'] ?? '').toString(),
+      byName: (data['byName'] ?? '').toString().trim().isEmpty
+          ? null
+          : (data['byName'] ?? '').toString(),
       notes: (data['notes'] ?? '').toString().trim().isEmpty
           ? null
           : (data['notes'] ?? '').toString(),

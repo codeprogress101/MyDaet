@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../services/user_context_service.dart';
 import '../../../services/permissions.dart';
 import '../../shared/widgets/app_scaffold.dart';
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 import '../domain/dts_document.dart';
 import 'dts_document_detail_screen.dart';
@@ -73,15 +74,15 @@ class _ResidentHome extends StatelessWidget {
   const _ResidentHome();
 
   void _openTrack(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DtsTrackDocumentScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DtsTrackDocumentScreen()));
   }
 
   void _openMyDocs(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DtsMyDocumentsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DtsMyDocumentsScreen()));
   }
 
   @override
@@ -94,16 +95,16 @@ class _ResidentHome extends StatelessWidget {
       children: [
         Text(
           'Document Tracking',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 6),
         Text(
           'Track your submitted documents or check the status of hard-copy submissions.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurface.withValues(alpha: 0.7),
-              ),
+            color: scheme.onSurface.withValues(alpha: 0.7),
+          ),
         ),
         const SizedBox(height: 16),
         _ActionCard(
@@ -135,8 +136,8 @@ class _ResidentHome extends StatelessWidget {
                 child: Text(
                   'If you submitted a hard copy, ask the Records Clerk for your tracking number and PIN.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.7),
-                      ),
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
               ),
             ],
@@ -161,9 +162,9 @@ class _StaffHomeState extends State<_StaffHome> {
   bool _generating = false;
 
   void _openScan(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DtsScanQrScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DtsScanQrScreen()));
   }
 
   Future<void> _generateBatch() async {
@@ -199,9 +200,9 @@ class _StaffHomeState extends State<_StaffHome> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate QR: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to generate QR: $e')));
       }
     } finally {
       if (mounted) setState(() => _generating = false);
@@ -215,8 +216,8 @@ class _StaffHomeState extends State<_StaffHome> {
     final title = userContext.isSuperAdmin
         ? 'All Documents'
         : (userContext.officeName?.trim().isNotEmpty == true
-            ? '${userContext.officeName} Queue'
-            : 'Office Queue');
+              ? '${userContext.officeName} Queue'
+              : 'Office Queue');
 
     return StreamBuilder<List<DtsDocument>>(
       stream: _repo.watchOfficeQueue(userContext),
@@ -238,8 +239,8 @@ class _StaffHomeState extends State<_StaffHome> {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 if (userContext.isSuperAdmin) ...[
@@ -274,8 +275,8 @@ class _StaffHomeState extends State<_StaffHome> {
                 child: Text(
                   'No documents available.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurface.withValues(alpha: 0.7),
-                      ),
+                    color: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
               )
             else
@@ -339,15 +340,15 @@ class _ActionCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.7),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.7),
+                      ),
                     ),
                   ],
                 ),
@@ -371,9 +372,7 @@ class _DocumentCard extends StatelessWidget {
 
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DtsDocumentDetailScreen(docId: doc.id),
-      ),
+      MaterialPageRoute(builder: (_) => DtsDocumentDetailScreen(docId: doc.id)),
     );
   }
 
@@ -383,10 +382,9 @@ class _DocumentCard extends StatelessWidget {
     final border = scheme.outlineVariant.withValues(alpha: 0.5);
     final statusColor = DtsStatusHelper.color(context, doc.status);
     final title = doc.title.isNotEmpty ? doc.title : 'Untitled document';
-    final officeLabel =
-        doc.currentOfficeName?.trim().isNotEmpty == true
-            ? doc.currentOfficeName!.trim()
-            : doc.currentOfficeId;
+    final officeLabel = doc.currentOfficeName?.trim().isNotEmpty == true
+        ? doc.currentOfficeName!.trim()
+        : doc.currentOfficeId;
     final time = doc.updatedAt ?? doc.createdAt;
     final timeLabel = time != null ? _formatTime(time) : '';
     final metaParts = <String>[
@@ -428,9 +426,9 @@ class _DocumentCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     _StatusChip(
@@ -439,13 +437,24 @@ class _DocumentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      metaParts.join(' • '),
+                      metaParts.join(' - '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
+                    if (doc.trackingPin != null &&
+                        doc.trackingPin!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'PIN: ${doc.trackingPin}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -492,10 +501,5 @@ class _StatusChip extends StatelessWidget {
 }
 
 String _formatTime(DateTime dt) {
-  int hour = dt.hour;
-  final minute = dt.minute.toString().padLeft(2, '0');
-  final ampm = hour >= 12 ? 'PM' : 'AM';
-  if (hour == 0) hour = 12;
-  if (hour > 12) hour -= 12;
-  return '$hour:$minute $ampm';
+  return formatManilaTime(dt, includeZone: true);
 }

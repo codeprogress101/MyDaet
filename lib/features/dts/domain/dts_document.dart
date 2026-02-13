@@ -4,14 +4,18 @@ class DtsPendingTransfer {
   final String fromOfficeId;
   final String? fromUid;
   final String toOfficeId;
+  final String? toOfficeName;
   final String? toUid;
+  final String? previousStatus;
   final DateTime? initiatedAt;
 
   const DtsPendingTransfer({
     required this.fromOfficeId,
     required this.toOfficeId,
+    this.toOfficeName,
     this.fromUid,
     this.toUid,
+    this.previousStatus,
     this.initiatedAt,
   });
 
@@ -23,9 +27,15 @@ class DtsPendingTransfer {
           ? null
           : (data['fromUid'] ?? '').toString(),
       toOfficeId: (data['toOfficeId'] ?? '').toString(),
+      toOfficeName: (data['toOfficeName'] ?? '').toString().trim().isEmpty
+          ? null
+          : (data['toOfficeName'] ?? '').toString(),
       toUid: (data['toUid'] ?? '').toString().trim().isEmpty
           ? null
           : (data['toUid'] ?? '').toString(),
+      previousStatus: (data['previousStatus'] ?? '').toString().trim().isEmpty
+          ? null
+          : (data['previousStatus'] ?? '').toString(),
       initiatedAt: initiatedRaw is Timestamp ? initiatedRaw.toDate() : null,
     );
   }
@@ -35,7 +45,9 @@ class DtsPendingTransfer {
       'fromOfficeId': fromOfficeId,
       'fromUid': fromUid,
       'toOfficeId': toOfficeId,
+      'toOfficeName': toOfficeName,
       'toUid': toUid,
+      'previousStatus': previousStatus,
       'initiatedAt': initiatedAt == null
           ? null
           : Timestamp.fromDate(initiatedAt!),
@@ -47,6 +59,7 @@ class DtsDocument {
   final String id;
   final String qrCode;
   final String trackingNo;
+  final String? trackingPin;
   final String title;
   final String docType;
   final String? sourceName;
@@ -67,6 +80,7 @@ class DtsDocument {
     required this.id,
     required this.qrCode,
     required this.trackingNo,
+    this.trackingPin,
     required this.title,
     required this.docType,
     required this.confidentiality,
@@ -90,6 +104,9 @@ class DtsDocument {
       id: doc.id,
       qrCode: (data['qrCode'] ?? '').toString(),
       trackingNo: (data['trackingNo'] ?? '').toString(),
+      trackingPin: (data['trackingPin'] ?? '').toString().trim().isEmpty
+          ? null
+          : (data['trackingPin'] ?? '').toString(),
       title: (data['title'] ?? 'Untitled').toString(),
       docType: (data['docType'] ?? '').toString(),
       sourceName: (data['sourceName'] ?? '').toString().trim().isEmpty
@@ -100,25 +117,23 @@ class DtsDocument {
       createdByUid: (data['createdByUid'] ?? '').toString().trim().isEmpty
           ? null
           : (data['createdByUid'] ?? '').toString(),
-      submittedByUid:
-          (data['submittedByUid'] ?? '').toString().trim().isEmpty
-              ? null
-              : (data['submittedByUid'] ?? '').toString(),
+      submittedByUid: (data['submittedByUid'] ?? '').toString().trim().isEmpty
+          ? null
+          : (data['submittedByUid'] ?? '').toString(),
       currentOfficeId: (data['currentOfficeId'] ?? '').toString(),
       currentOfficeName:
           (data['currentOfficeName'] ?? '').toString().trim().isEmpty
-              ? null
-              : (data['currentOfficeName'] ?? '').toString(),
+          ? null
+          : (data['currentOfficeName'] ?? '').toString(),
       currentCustodianUid:
           (data['currentCustodianUid'] ?? '').toString().trim().isEmpty
-              ? null
-              : (data['currentCustodianUid'] ?? '').toString(),
-      physicalLocation:
-          data['physicalLocation'] is Map<String, dynamic>
-              ? Map<String, dynamic>.from(
-                  data['physicalLocation'] as Map<String, dynamic>,
-                )
-              : null,
+          ? null
+          : (data['currentCustodianUid'] ?? '').toString(),
+      physicalLocation: data['physicalLocation'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(
+              data['physicalLocation'] as Map<String, dynamic>,
+            )
+          : null,
       coverPhoto: data['coverPhoto'] is Map<String, dynamic>
           ? Map<String, dynamic>.from(
               data['coverPhoto'] as Map<String, dynamic>,
@@ -131,14 +146,12 @@ class DtsDocument {
               ),
             )
           : null,
-      createdAt:
-          data['createdAt'] is Timestamp
-              ? (data['createdAt'] as Timestamp).toDate()
-              : null,
-      updatedAt:
-          data['updatedAt'] is Timestamp
-              ? (data['updatedAt'] as Timestamp).toDate()
-              : null,
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : null,
+      updatedAt: data['updatedAt'] is Timestamp
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : null,
     );
   }
 }

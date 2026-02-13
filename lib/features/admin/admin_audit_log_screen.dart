@@ -1,11 +1,13 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../resident/announcements_screen.dart';
-import 'admin_report_detail_screen.dart';
 import '../../services/permissions.dart';
 import '../../services/user_context_service.dart';
+import '../shared/timezone_utils.dart';
+import '../dts/presentation/dts_document_detail_screen.dart';
+import '../resident/announcements_screen.dart';
+import 'admin_report_detail_screen.dart';
 
 class AdminAuditLogScreen extends StatefulWidget {
   const AdminAuditLogScreen({super.key});
@@ -99,16 +101,29 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                   itemBuilder: (context, index) {
                     final data = docs[index].data();
                     final action = (data['action'] ?? '').toString();
-                    final reportId = (data['reportId'] ?? '').toString();
-                    final announcementId =
-                        (data['announcementId'] ?? '').toString();
+                    final reportId = (data['reportId'] ?? '').toString().trim();
+                    final announcementId = (data['announcementId'] ?? '')
+                        .toString()
+                        .trim();
+                    final dtsDocId = (data['dtsDocId'] ?? '').toString().trim();
+
                     final isAnnouncement = announcementId.isNotEmpty;
+                    final isDts =
+                        dtsDocId.isNotEmpty || action.startsWith('dts_');
                     final title = isAnnouncement
-                        ? (data['announcementTitle'] ?? 'Announcement').toString()
+                        ? (data['announcementTitle'] ?? 'Announcement')
+                              .toString()
+                        : isDts
+                        ? (data['dtsTitle'] ?? 'Document').toString()
                         : (data['reportTitle'] ?? 'Report').toString();
                     final category = isAnnouncement
                         ? (data['announcementCategory'] ?? '').toString()
+                        : isDts
+                        ? (data['dtsDocType'] ?? '').toString()
                         : (data['reportCategory'] ?? '').toString();
+                    final trackingNo = (data['dtsTrackingNo'] ?? '')
+                        .toString()
+                        .trim();
                     final message = (data['message'] ?? '').toString();
                     final createdAt = data['createdAt'] as Timestamp?;
                     final when = createdAt != null
@@ -122,10 +137,10 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                     final actorBase = actorName.isNotEmpty
                         ? actorName
                         : actorEmail.isNotEmpty
-                            ? actorEmail
-                            : actorRole.isNotEmpty
-                                ? actorRole.toUpperCase()
-                                : 'SYSTEM';
+                        ? actorEmail
+                        : actorRole.isNotEmpty
+                        ? actorRole.toUpperCase()
+                        : 'SYSTEM';
                     final actor = actorUid.isNotEmpty
                         ? '$actorBase • $actorUid'
                         : actorBase;
@@ -134,14 +149,18 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                       action,
                       title,
                       isAnnouncement: isAnnouncement,
+                      isDts: isDts,
+                      trackingNo: trackingNo,
                     );
                     final subtitle = message.isNotEmpty
                         ? message
                         : category.isNotEmpty
-                            ? category
-                            : isAnnouncement
-                                ? 'Announcement update'
-                                : 'Report update';
+                        ? category
+                        : isAnnouncement
+                        ? 'Announcement update'
+                        : isDts
+                        ? 'Document update'
+                        : 'Report update';
 
                     return Card(
                       elevation: 0,
@@ -150,17 +169,16 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                         side: BorderSide(color: border),
                       ),
                       child: ListTile(
-                        leading: Icon(
-                          _actionIcon(action),
-                          color: accent,
-                        ),
+                        leading: Icon(_actionIcon(action), color: accent),
                         title: Text(header),
                         subtitle: Text('$subtitle\n$actor • $when'),
                         isThreeLine: true,
                         trailing:
-                            (reportId.isNotEmpty || announcementId.isNotEmpty)
-                                ? const Icon(Icons.chevron_right)
-                                : null,
+                            (reportId.isNotEmpty ||
+                                announcementId.isNotEmpty ||
+                                dtsDocId.isNotEmpty)
+                            ? const Icon(Icons.chevron_right)
+                            : null,
                         onTap: reportId.isNotEmpty
                             ? () {
                                 Navigator.of(context).push(
@@ -171,17 +189,27 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                                   ),
                                 );
                               }
+                            : dtsDocId.isNotEmpty
+                            ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => DtsDocumentDetailScreen(
+                                      docId: dtsDocId,
+                                    ),
+                                  ),
+                                );
+                              }
                             : announcementId.isNotEmpty
-                                ? () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => AnnouncementDetailScreen(
-                                          announcementId: announcementId,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                : null,
+                            ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => AnnouncementDetailScreen(
+                                      announcementId: announcementId,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
                       ),
                     );
                   },
@@ -195,7 +223,16 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
   }
 }
 
-String _prettyAction(String action, String title, {bool isAnnouncement = false}) {
+String _prettyAction(
+  String action,
+  String title, {
+  bool isAnnouncement = false,
+  bool isDts = false,
+  String? trackingNo,
+}) {
+  final trackingLabel = trackingNo != null && trackingNo.trim().isNotEmpty
+      ? ' [$trackingNo]'
+      : '';
   switch (action) {
     case 'report_created':
       return 'Created: $title';
@@ -217,8 +254,26 @@ String _prettyAction(String action, String title, {bool isAnnouncement = false})
       return 'Announcement updated: $title';
     case 'announcement_deleted':
       return 'Announcement deleted: $title';
+    case 'dts_received':
+      return 'DTS received$trackingLabel: $title';
+    case 'dts_transfer_initiated':
+      return 'DTS transfer initiated$trackingLabel: $title';
+    case 'dts_transfer_confirmed':
+      return 'DTS transfer confirmed$trackingLabel: $title';
+    case 'dts_status_changed':
+      return 'DTS status changed$trackingLabel: $title';
+    case 'dts_returned':
+      return 'DTS transfer returned$trackingLabel: $title';
+    case 'dts_released':
+      return 'DTS released$trackingLabel: $title';
+    case 'dts_archived':
+      return 'DTS archived$trackingLabel: $title';
+    case 'dts_pulled_out':
+      return 'DTS pulled out$trackingLabel: $title';
     default:
-      return isAnnouncement ? 'Announcement: $title' : title;
+      if (isAnnouncement) return 'Announcement: $title';
+      if (isDts) return 'DTS update$trackingLabel: $title';
+      return title;
   }
 }
 
@@ -242,30 +297,27 @@ IconData _actionIcon(String action) {
       return Icons.edit;
     case 'announcement_deleted':
       return Icons.delete_outline;
+    case 'dts_received':
+      return Icons.inventory_2_outlined;
+    case 'dts_transfer_initiated':
+      return Icons.outbox_outlined;
+    case 'dts_transfer_confirmed':
+      return Icons.move_to_inbox_outlined;
+    case 'dts_status_changed':
+      return Icons.sync_alt;
+    case 'dts_returned':
+      return Icons.keyboard_return;
+    case 'dts_released':
+      return Icons.task_alt;
+    case 'dts_archived':
+      return Icons.archive_outlined;
+    case 'dts_pulled_out':
+      return Icons.unarchive_outlined;
     default:
       return Icons.history;
   }
 }
 
 String _formatDateTime(DateTime dt) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  final m = months[dt.month - 1];
-  final day = dt.day.toString().padLeft(2, '0');
-  final year = dt.year.toString();
-  final hour = dt.hour.toString().padLeft(2, '0');
-  final minute = dt.minute.toString().padLeft(2, '0');
-  return '$m $day, $year • $hour:$minute';
+  return formatManilaDateTime(dt, includeZone: true);
 }

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 import '../domain/dts_document.dart';
 import 'dts_document_detail_screen.dart';
@@ -64,9 +65,7 @@ class _DocCard extends StatelessWidget {
 
   void _open(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DtsDocumentDetailScreen(docId: doc.id),
-      ),
+      MaterialPageRoute(builder: (_) => DtsDocumentDetailScreen(docId: doc.id)),
     );
   }
 
@@ -111,8 +110,8 @@ class _DocCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     _StatusChip(
@@ -121,12 +120,25 @@ class _DocCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      [doc.trackingNo, if (timeLabel.isNotEmpty) timeLabel]
-                          .join(' • '),
+                      [
+                        doc.trackingNo,
+                        if (timeLabel.isNotEmpty) timeLabel,
+                      ].join(' - '),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: scheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
+                    if (doc.trackingPin != null &&
+                        doc.trackingPin!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'PIN: ${doc.trackingPin}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -170,21 +182,5 @@ class _StatusChip extends StatelessWidget {
 }
 
 String _formatDate(DateTime dt) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  final m = months[dt.month - 1];
-  final day = dt.day.toString().padLeft(2, '0');
-  return '$m $day, ${dt.year}';
+  return formatManilaDateTime(dt, includeZone: true);
 }

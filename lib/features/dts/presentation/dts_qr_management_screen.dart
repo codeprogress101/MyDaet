@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../services/user_context_service.dart';
 import '../../../services/permissions.dart';
+import '../../../services/user_context_service.dart';
 import '../data/dts_repository.dart';
 
 class DtsQrManagementScreen extends StatefulWidget {
@@ -20,6 +21,8 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
   late final Future<UserContext?> _contextFuture;
   final _search = TextEditingController();
   String _filter = 'all';
+  String _exportScope = 'visible';
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -40,15 +43,52 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
         .snapshots();
   }
 
-  Future<void> _exportZip(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) async {
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _docsByScope(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> allDocs,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> filteredDocs,
+  ) {
+    switch (_exportScope) {
+      case 'unused':
+        return allDocs
+            .where((doc) => (doc.data()['status'] ?? 'unused') == 'unused')
+            .toList();
+      case 'used':
+        return allDocs
+            .where((doc) => (doc.data()['status'] ?? '') == 'used')
+            .toList();
+      case 'visible':
+      default:
+        return filteredDocs;
+    }
+  }
+
+  String _exportScopeLabel() {
+    switch (_exportScope) {
+      case 'unused':
+        return 'Unused';
+      case 'used':
+        return 'Used';
+      case 'visible':
+      default:
+        return 'Visible';
+    }
+  }
+
+  Future<void> _exportZip(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    if (_exporting) return;
     if (docs.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No QR codes to export.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No QR codes to export.')));
       }
       return;
     }
+
+    setState(() => _exporting = true);
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
       final codes = docs
@@ -56,21 +96,39 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
           .map((doc) => (doc.data()['qrCode'] ?? doc.id).toString())
           .toList();
       final repo = DtsRepository();
-      final url = await repo.exportQrZip(codes: codes);
+      final export = await repo.exportQrZip(codes: codes);
       if (!mounted) return;
+
+      var url = export.downloadUrl?.trim() ?? '';
+      if (url.isEmpty && export.path.isNotEmpty) {
+        try {
+          url = await FirebaseStorage.instance
+              .ref(export.path)
+              .getDownloadURL();
+        } catch (_) {
+          url = '';
+        }
+      }
+
       if (url.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Export failed. No download URL.')),
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Export created but download URL is unavailable. Check storage permissions.',
+            ),
+          ),
         );
         return;
       }
+
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
             title: const Text('QR Export Ready'),
-            content: const Text(
-              'Your ZIP file is ready for download.',
+            content: Text(
+              'Your ZIP file is ready for download (${export.count} codes).',
             ),
             actions: [
               TextButton(
@@ -84,8 +142,10 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                   final ok = await canLaunchUrl(uri);
                   if (!ok) {
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Unable to open download URL.')),
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Unable to open download URL.'),
+                      ),
                     );
                     return;
                   }
@@ -99,9 +159,13 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+      var message = 'Export failed. Please try again.';
+      if (e is FirebaseFunctionsException) {
+        message = 'Export failed (${e.code}). Please try again.';
+      }
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 
@@ -157,9 +221,7 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
           }
           final userContext = userSnap.data;
           if (userContext == null || !userContext.isSuperAdmin) {
-            return const Scaffold(
-              body: Center(child: Text('Not authorized.')),
-            );
+            return const Scaffold(body: Center(child: Text('Not authorized.')));
           }
 
           return Scaffold(
@@ -182,8 +244,7 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                 final allDocs = snapshot.data!.docs;
                 final query = _search.text.trim().toLowerCase();
 
-                List<QueryDocumentSnapshot<Map<String, dynamic>>> filtered =
-                    allDocs.where((doc) {
+                final filtered = allDocs.where((doc) {
                   final data = doc.data();
                   final code = (data['qrCode'] ?? doc.id)
                       .toString()
@@ -202,6 +263,11 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                 final usedCount = allDocs
                     .where((d) => (d.data()['status'] ?? '') == 'used')
                     .length;
+
+                final exportDocs = _docsByScope(allDocs, filtered);
+                final exportCount = exportDocs.length > 10
+                    ? 10
+                    : exportDocs.length;
 
                 return ListView(
                   padding: const EdgeInsets.all(16),
@@ -264,10 +330,38 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                             ),
                           ),
                         ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Export scope',
+                          initialValue: _exportScope,
+                          onSelected: (value) =>
+                              setState(() => _exportScope = value),
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'visible',
+                              child: Text('Export visible list'),
+                            ),
+                            PopupMenuItem(
+                              value: 'unused',
+                              child: Text('Export unused only'),
+                            ),
+                            PopupMenuItem(
+                              value: 'used',
+                              child: Text('Export used only'),
+                            ),
+                          ],
+                          icon: const Icon(Icons.tune),
+                        ),
+                        const SizedBox(width: 8),
                         FilledButton.icon(
-                          onPressed: () => _exportZip(filtered),
+                          onPressed: _exporting
+                              ? null
+                              : () => _exportZip(exportDocs),
                           icon: const Icon(Icons.archive),
-                          label: const Text('Export ZIP (10)'),
+                          label: Text(
+                            _exporting
+                                ? 'Exporting...'
+                                : 'Export ${_exportScopeLabel()} ($exportCount)',
+                          ),
                         ),
                       ],
                     ),
@@ -282,15 +376,11 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                     else
                       ...filtered.map((doc) {
                         final data = doc.data();
-                        final code =
-                            (data['qrCode'] ?? doc.id).toString();
-                        final status =
-                            (data['status'] ?? 'unused').toString();
-                        final imagePath =
-                            (data['imagePath'] ?? '').toString();
+                        final code = (data['qrCode'] ?? doc.id).toString();
+                        final status = (data['status'] ?? 'unused').toString();
+                        final imagePath = (data['imagePath'] ?? '').toString();
                         final usedAt = _formatTimestamp(data['usedAt']);
-                        final docId =
-                            (data['docId'] ?? '').toString();
+                        final docId = (data['docId'] ?? '').toString();
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -299,16 +389,15 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                               side: BorderSide(
-                                color: scheme.outlineVariant
-                                    .withValues(alpha: 0.5),
+                                color: scheme.outlineVariant.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                             child: ListTile(
                               title: Text(code),
                               subtitle: Text(
-                                status == 'used'
-                                    ? 'Used • $usedAt'
-                                    : 'Unused',
+                                status == 'used' ? 'Used - $usedAt' : 'Unused',
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -321,8 +410,10 @@ class _DtsQrManagementScreenState extends State<DtsQrManagementScreen> {
                                       icon: const Icon(Icons.qr_code_2),
                                     ),
                                   if (docId.isNotEmpty)
-                                    const Icon(Icons.check_circle,
-                                        color: Colors.green),
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green.shade600,
+                                    ),
                                 ],
                               ),
                             ),
@@ -347,14 +438,13 @@ Widget _chip(
   required VoidCallback onTap,
 }) {
   final scheme = Theme.of(context).colorScheme;
-  final bg = selected
-      ? scheme.primary.withValues(alpha: 0.12)
-      : scheme.surface;
+  final bg = selected ? scheme.primary.withValues(alpha: 0.12) : scheme.surface;
   final border = selected
       ? scheme.primary.withValues(alpha: 0.3)
       : scheme.outlineVariant;
-  final color =
-      selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.7);
+  final color = selected
+      ? scheme.primary
+      : scheme.onSurface.withValues(alpha: 0.7);
 
   return Material(
     color: bg,
@@ -371,10 +461,7 @@ Widget _chip(
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: color, fontWeight: FontWeight.w600),
         ),
       ),
     ),
