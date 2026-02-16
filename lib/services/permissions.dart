@@ -73,10 +73,7 @@ class Permissions {
   }) {
     if (!user.isOfficeAdmin) return false;
     final trimmed = reportOfficeId?.trim();
-    if (trimmed == null || trimmed.isEmpty) {
-      // TODO: When reports include officeId, remove this fallback.
-      return true;
-    }
+    if (trimmed == null || trimmed.isEmpty) return false;
     return user.officeId != null && user.officeId == trimmed;
   }
 
@@ -89,10 +86,7 @@ class Permissions {
     if (user.isSuperAdmin) return true;
     if (user.isOfficeAdmin) {
       final trimmed = reportOfficeId?.trim();
-      if (trimmed == null || trimmed.isEmpty) {
-        // TODO: When reports include officeId, remove this fallback.
-        return true;
-      }
+      if (trimmed == null || trimmed.isEmpty) return false;
       return user.officeId != null && user.officeId == trimmed;
     }
     if (user.isModerator) {

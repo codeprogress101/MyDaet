@@ -102,7 +102,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         onSelected: (_) => setState(() => _filter = item.$1),
                       );
                     },
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
                     itemCount: _filters.length + 1,
                   ),
                 ),

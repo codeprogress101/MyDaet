@@ -160,6 +160,29 @@ class _StaffHome extends StatefulWidget {
 class _StaffHomeState extends State<_StaffHome> {
   final _repo = DtsRepository();
   bool _generating = false;
+  bool _syncingQueue = false;
+  int _offlineConflictCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncOfflineQueue();
+  }
+
+  Future<void> _syncOfflineQueue() async {
+    if (_syncingQueue) return;
+    setState(() => _syncingQueue = true);
+    try {
+      await _repo.flushOfflineQueue();
+      final conflicts = await _repo.getOfflineConflicts();
+      if (!mounted) return;
+      setState(() => _offlineConflictCount = conflicts.length);
+    } catch (_) {
+      // keep silent for dashboard.
+    } finally {
+      if (mounted) setState(() => _syncingQueue = false);
+    }
+  }
 
   void _openScan(BuildContext context) {
     Navigator.of(
@@ -174,7 +197,7 @@ class _StaffHomeState extends State<_StaffHome> {
       final codes = await _repo.generateQrCodes(count: 10);
       if (!mounted) return;
       await showDialog<void>(
-        context: this.context,
+        context: context,
         builder: (context) {
           return AlertDialog(
             title: const Text('Generated QR Codes'),
@@ -270,6 +293,34 @@ class _StaffHomeState extends State<_StaffHome> {
               ],
             ),
             const SizedBox(height: 12),
+            if (_offlineConflictCount > 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  color: scheme.surface,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sync_problem_outlined),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$_offlineConflictCount offline sync conflict(s) need review from Ops Health.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _syncingQueue ? null : _syncOfflineQueue,
+                      child: Text(_syncingQueue ? 'Syncing...' : 'Retry'),
+                    ),
+                  ],
+                ),
+              ),
             if (docs.isEmpty)
               Center(
                 child: Text(

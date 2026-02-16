@@ -16,23 +16,68 @@ class ReportsService {
   Future<String> createReport({
     required String title,
     required String description,
+    String? officeId,
+    String? officeName,
   }) async {
     final doc = _db.collection('reports').doc();
+    final resolvedOffice = await _resolveOffice(
+      officeId: officeId,
+      officeName: officeName,
+    );
 
     await doc.set({
       'title': title.trim(),
       'description': description.trim(),
       'status': 'submitted',
+      'officeId': resolvedOffice.$1,
+      'officeName': resolvedOffice.$2,
       'createdByUid': _uid,
       'createdByEmail': _email,
       'assignedToUid': null,
       'assignedToEmail': null,
-      // TODO: Add officeId when reports become office-scoped.
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
     return doc.id;
+  }
+
+  Future<(String, String)> _resolveOffice({
+    String? officeId,
+    String? officeName,
+  }) async {
+    final trimmedId = officeId?.trim() ?? '';
+    final trimmedName = officeName?.trim() ?? '';
+    if (trimmedId.isNotEmpty && trimmedName.isNotEmpty) {
+      return (trimmedId, trimmedName);
+    }
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('offices')
+        .orderBy('name')
+        .limit(1);
+    final active = await _db
+        .collection('offices')
+        .where('isActive', isEqualTo: true)
+        .orderBy('name')
+        .limit(1)
+        .get();
+    if (active.docs.isNotEmpty) {
+      final data = active.docs.first.data();
+      final name = (data['name'] ?? '').toString().trim();
+      if (name.isNotEmpty) {
+        return (active.docs.first.id, name);
+      }
+    }
+    final fallback = await query.get();
+    if (fallback.docs.isNotEmpty) {
+      final data = fallback.docs.first.data();
+      final name = (data['name'] ?? '').toString().trim();
+      if (name.isNotEmpty) {
+        return (fallback.docs.first.id, name);
+      }
+    }
+    throw Exception('No office configured. Ask admin to add offices.');
   }
 
   /// Resident “My Reports” (only theirs)

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import 'moderator_dashboard_screen.dart';
 import 'moderator_reports_screen.dart';
-import 'moderator_inbox_screen.dart';
 import 'moderator_advertisements_screen.dart';
 import '../dts/presentation/dts_home_screen.dart';
 import '../resident/notifications_stub_screen.dart';
@@ -28,7 +27,6 @@ class _ModeratorShellState extends State<ModeratorShell> {
     DtsHomeScreen(),
     ModeratorAdvertisementsScreen(),
     AccountScreen(showAppBar: false),
-    ModeratorInboxScreen(),
   ];
 
   String _titleFor(int i) {
@@ -43,8 +41,6 @@ class _ModeratorShellState extends State<ModeratorShell> {
         return "Advertisements";
       case 4:
         return "Account";
-      case 5:
-        return "Inbox";
       default:
         return "Moderator";
     }
@@ -103,13 +99,13 @@ class _ModeratorShellState extends State<ModeratorShell> {
           label: "Docs",
         ),
         AppNavItem(
-          index: 4,
+          index: 3,
           icon: Icons.campaign_outlined,
           selectedIcon: Icons.campaign,
           label: "Ads",
         ),
         AppNavItem(
-          index: 5,
+          index: 4,
           icon: Icons.person_outline,
           selectedIcon: Icons.person,
           label: "Account",

@@ -60,6 +60,8 @@ class _BottomNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final selectedColor = scheme.primary;
     final unselectedColor = scheme.onSurfaceVariant;
+    final selectedItemIndex = items.indexWhere((item) => item.index == currentIndex);
+    final navSelectedIndex = selectedItemIndex >= 0 ? selectedItemIndex : 0;
 
     final labelStyle = TextStyle(
       fontSize: 10.5,
@@ -81,19 +83,19 @@ class _BottomNavBar extends StatelessWidget {
             backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,
             indicatorColor: scheme.primary.withValues(alpha: 0.12),
-            labelTextStyle: MaterialStateProperty.resolveWith(
+            labelTextStyle: WidgetStateProperty.resolveWith(
               (states) {
                 final color =
-                    states.contains(MaterialState.selected)
+                    states.contains(WidgetState.selected)
                         ? selectedColor
                         : unselectedColor;
                 return labelStyle.copyWith(color: color);
               },
             ),
-            iconTheme: MaterialStateProperty.resolveWith(
+            iconTheme: WidgetStateProperty.resolveWith(
               (states) {
                 final color =
-                    states.contains(MaterialState.selected)
+                    states.contains(WidgetState.selected)
                         ? selectedColor
                         : unselectedColor;
                 return IconThemeData(color: color, size: 22);
@@ -101,8 +103,11 @@ class _BottomNavBar extends StatelessWidget {
             ),
           ),
           child: NavigationBar(
-            selectedIndex: currentIndex,
-            onDestinationSelected: onSelect,
+            selectedIndex: navSelectedIndex,
+            onDestinationSelected: (destinationIndex) {
+              final mappedIndex = items[destinationIndex].index;
+              onSelect(mappedIndex);
+            },
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: items
                 .map(

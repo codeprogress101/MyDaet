@@ -135,9 +135,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           isThreeLine: body.isNotEmpty,
                           onTap: () async {
-                            await doc.reference.set({
-                              'read': true,
-                            }, SetOptions(merge: true));
+                            try {
+                              await doc.reference.delete();
+                            } catch (_) {
+                              await doc.reference.set({
+                                'read': true,
+                              }, SetOptions(merge: true));
+                            }
 
                             if (type == 'announcement_published' &&
                                 announcementId.isNotEmpty) {

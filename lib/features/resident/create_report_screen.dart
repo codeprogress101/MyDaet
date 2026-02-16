@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'daet_geo.dart';
 import 'location_picker_screen.dart';
@@ -53,7 +54,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   bool _officeManuallySelected = false;
   int _inactiveOfficeCount = 0;
 
-  final List<PlatformFile> _files = [];
+  final List<_DraftAttachment> _files = [];
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void dispose() {
@@ -150,11 +152,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 final filtered = query.trim().isEmpty
                     ? _offices
                     : _offices
-                        .where(
-                          (o) =>
-                              _normalize(o.name).contains(_normalize(query)),
-                        )
-                        .toList();
+                          .where(
+                            (o) =>
+                                _normalize(o.name).contains(_normalize(query)),
+                          )
+                          .toList();
 
                 return SafeArea(
                   child: Padding(
@@ -190,7 +192,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                     ),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
                                     child: const Text('Close'),
                                   ),
                                 ],
@@ -226,8 +229,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                 const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final office = filtered[index];
-                              final isSelected =
-                                  office.id == _selectedOfficeId;
+                              final isSelected = office.id == _selectedOfficeId;
                               return ListTile(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -242,12 +244,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 trailing: isSelected
-                                    ? const Icon(Icons.check_circle,
-                                        color: accent)
-                                    : const Icon(Icons.circle_outlined,
-                                        color: Colors.transparent),
-                                onTap: () =>
-                                    Navigator.of(context).pop(office),
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: accent,
+                                      )
+                                    : const Icon(
+                                        Icons.circle_outlined,
+                                        color: Colors.transparent,
+                                      ),
+                                onTap: () => Navigator.of(context).pop(office),
                               );
                             },
                           ),
@@ -285,10 +290,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           readOnly: true,
           showCursor: false,
           onTap: _openOfficePicker,
-          decoration: inputDecoration('Office', Icons.business_outlined).copyWith(
-            suffixIcon: const Icon(Icons.expand_more),
-            hintText: 'Select office',
-          ),
+          decoration: inputDecoration('Office', Icons.business_outlined)
+              .copyWith(
+                suffixIcon: const Icon(Icons.expand_more),
+                hintText: 'Select office',
+              ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -320,13 +326,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       'Public Safety and Traffic Management Unit (PSTMU)',
       "Mayor's Office",
     ],
-    'Health': [
-      'Municipal Health Office (MHO)',
-    ],
-    'Others': [
-      "Mayor's Office",
-      "Municipal Administrator's Office",
-    ],
+    'Health': ['Municipal Health Office (MHO)'],
+    'Others': ["Mayor's Office", "Municipal Administrator's Office"],
   };
 
   static String _normalize(String value) {
@@ -341,9 +342,109 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
     if (res == null) return;
 
+    final picked = res.files
+        .where((f) => f.path != null)
+        .map(
+          (f) =>
+              _DraftAttachment(name: f.name, path: f.path!, sizeBytes: f.size),
+        )
+        .toList();
+    if (picked.isEmpty) return;
+
     setState(() {
-      _files.addAll(res.files.where((f) => f.path != null));
+      _files.addAll(picked);
     });
+  }
+
+  Future<void> _captureLivePhoto() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+
+    final file = File(picked.path);
+    final size = await file.length();
+    if (!mounted) return;
+    setState(() {
+      _files.add(
+        _DraftAttachment(
+          name: _fileNameFromPath(picked.path, fallback: 'photo.jpg'),
+          path: picked.path,
+          sizeBytes: size,
+        ),
+      );
+    });
+  }
+
+  Future<void> _captureLiveVideo() async {
+    final picked = await _imagePicker.pickVideo(source: ImageSource.camera);
+    if (picked == null) return;
+
+    final file = File(picked.path);
+    final size = await file.length();
+    if (!mounted) return;
+    setState(() {
+      _files.add(
+        _DraftAttachment(
+          name: _fileNameFromPath(picked.path, fallback: 'video.mp4'),
+          path: picked.path,
+          sizeBytes: size,
+        ),
+      );
+    });
+  }
+
+  Future<void> _openAttachmentOptions() async {
+    if (_loading) return;
+    final choice = await showModalBottomSheet<_AttachmentOption>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_open),
+                title: const Text('Browse files'),
+                subtitle: const Text('Pick existing files from device'),
+                onTap: () =>
+                    Navigator.of(context).pop(_AttachmentOption.pickFiles),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Capture photo'),
+                subtitle: const Text('Take a live photo attachment'),
+                onTap: () =>
+                    Navigator.of(context).pop(_AttachmentOption.capturePhoto),
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam),
+                title: const Text('Capture video'),
+                subtitle: const Text('Record a live video attachment'),
+                onTap: () =>
+                    Navigator.of(context).pop(_AttachmentOption.captureVideo),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case _AttachmentOption.pickFiles:
+        await _pickFiles();
+        break;
+      case _AttachmentOption.capturePhoto:
+        await _captureLivePhoto();
+        break;
+      case _AttachmentOption.captureVideo:
+        await _captureLiveVideo();
+        break;
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -366,9 +467,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
     setState(() => _status = 'Getting GPS location...');
     final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-      ),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
 
     if (!isWithinDaet(pos.latitude, pos.longitude)) {
@@ -414,16 +513,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   Future<void> _pickOnMap() async {
     final picked = await Navigator.of(context).push<PickedLocation>(
       MaterialPageRoute(
-        builder: (_) => LocationPickerScreen(
-          initialLat: _lat,
-          initialLng: _lng,
-        ),
+        builder: (_) =>
+            LocationPickerScreen(initialLat: _lat, initialLng: _lng),
       ),
     );
     if (picked == null) return;
 
     if (!isWithinDaet(picked.lat, picked.lng)) {
-      setState(() => _status = 'Location must be within Daet, Camarines Norte.');
+      setState(
+        () => _status = 'Location must be within Daet, Camarines Norte.',
+      );
       return;
     }
 
@@ -443,10 +542,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     final List<Map<String, dynamic>> uploaded = [];
 
     for (final f in _files) {
-      final path = f.path;
-      if (path == null) continue;
-
-      final file = File(path);
+      final file = File(f.path);
       final fileName = f.name;
 
       final storagePath = 'reports/$uid/$reportId/$fileName';
@@ -459,7 +555,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         'name': fileName,
         'path': storagePath,
         'url': url,
-        'size': f.size,
+        'size': f.sizeBytes,
         'contentType': task.metadata?.contentType,
         'uploadedAt': Timestamp.now(),
       });
@@ -493,8 +589,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     String? officeName = _selectedOfficeName;
     if (officeName == null || officeName.trim().isEmpty) {
       try {
-        final match =
-            _offices.firstWhere((o) => o.id == _selectedOfficeId);
+        final match = _offices.firstWhere((o) => o.id == _selectedOfficeId);
         officeName = match.name;
       } catch (_) {}
     }
@@ -513,9 +608,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       final doc = reports.doc();
       final reportId = doc.id;
 
-      setState(() => _status = 'Uploading attachments...');
-      final attachments = await _uploadAttachments(reportId);
-
       setState(() => _status = 'Saving report...');
       await doc.set({
         'title': _title.text.trim(),
@@ -527,24 +619,30 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         'createdByUid': user.uid,
         'createdByEmail': user.email,
         'createdByName': user.displayName,
-        'contactNumber':
-            _contact.text.trim().isEmpty ? null : _contact.text.trim(),
+        'contactNumber': _contact.text.trim().isEmpty
+            ? null
+            : _contact.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'location': {
-          'lat': _lat,
-          'lng': _lng,
-          'address': _address,
-        },
-        'attachments': attachments,
+        'location': {'lat': _lat, 'lng': _lng, 'address': _address},
+        'attachments': const [],
         'assignedToUid': null,
         'assignedToEmail': null,
       });
 
+      if (_files.isNotEmpty) {
+        setState(() => _status = 'Uploading attachments...');
+        final attachments = await _uploadAttachments(reportId);
+        await doc.set({
+          'attachments': attachments,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report submitted.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Report submitted.')));
       Navigator.of(context).pop();
     } catch (e) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -576,7 +674,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         prefixIcon: Icon(icon, color: accent),
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: border),
@@ -726,7 +827,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: _loading ? null : _pickFiles,
+              onPressed: _loading ? null : _openAttachmentOptions,
               icon: const Icon(Icons.attach_file, color: accent),
               label: const Text('Add Attachment'),
               style: OutlinedButton.styleFrom(
@@ -754,14 +855,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     side: BorderSide(color: border),
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.insert_drive_file_outlined),
+                    leading: Icon(
+                      f.isVideo
+                          ? Icons.videocam_outlined
+                          : (f.isImage
+                                ? Icons.image_outlined
+                                : Icons.insert_drive_file_outlined),
+                    ),
                     title: Text(f.name),
-                    subtitle:
-                        Text('${(f.size / 1024).toStringAsFixed(1)} KB'),
+                    subtitle: Text(
+                      '${(f.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                    ),
                     trailing: IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed:
-                          _loading ? null : () => setState(() => _files.remove(f)),
+                      onPressed: _loading
+                          ? null
+                          : () => setState(() => _files.remove(f)),
                     ),
                   ),
                 ),
@@ -802,4 +911,44 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       ),
     );
   }
+}
+
+enum _AttachmentOption { pickFiles, capturePhoto, captureVideo }
+
+class _DraftAttachment {
+  const _DraftAttachment({
+    required this.name,
+    required this.path,
+    required this.sizeBytes,
+  });
+
+  final String name;
+  final String path;
+  final int sizeBytes;
+
+  bool get isImage {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.heic');
+  }
+
+  bool get isVideo {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.mp4') ||
+        lower.endsWith('.mov') ||
+        lower.endsWith('.m4v') ||
+        lower.endsWith('.3gp') ||
+        lower.endsWith('.avi');
+  }
+}
+
+String _fileNameFromPath(String path, {required String fallback}) {
+  final normalized = path.replaceAll('\\', '/').trim();
+  if (normalized.isEmpty) return fallback;
+  final parts = normalized.split('/');
+  final last = parts.isNotEmpty ? parts.last.trim() : '';
+  return last.isEmpty ? fallback : last;
 }

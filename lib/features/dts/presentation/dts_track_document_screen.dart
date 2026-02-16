@@ -2,7 +2,10 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 import '../domain/dts_tracking_result.dart';
 import 'dts_status.dart';
@@ -18,6 +21,11 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
   final _repo = DtsRepository();
   final _trackingNo = TextEditingController();
   final _pin = TextEditingController();
+  final _imagePicker = ImagePicker();
+  final _imageAnalyzer = MobileScannerController(
+    autoStart: false,
+    formats: const [BarcodeFormat.qrCode],
+  );
   bool _loading = false;
   bool _savingToAccount = false;
   bool _savedToAccount = false;
@@ -26,12 +34,27 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
   DtsTrackingResult? _result;
   String? _lastTrackingNo;
   String? _lastPin;
+  String? _sessionToken;
+  DateTime? _sessionExpiresAt;
 
   @override
   void dispose() {
+    _imageAnalyzer.dispose();
     _trackingNo.dispose();
     _pin.dispose();
     super.dispose();
+  }
+
+  void _applyTrackingResult(DtsTrackingResult result, {String? pin}) {
+    setState(() {
+      _result = result;
+      _trackingNo.text = result.trackingNo;
+      _lastTrackingNo = result.trackingNo;
+      _lastPin = pin ?? _lastPin;
+      _sessionToken = result.sessionToken;
+      _sessionExpiresAt = result.sessionExpiresAt;
+      _status = '';
+    });
   }
 
   Future<void> _submit() async {
@@ -54,16 +77,102 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
         trackingNo: tracking,
         pin: pin,
       );
-      setState(() {
-        _result = result;
-        _lastTrackingNo = tracking;
-        _lastPin = pin;
-        _status = '';
-      });
+      _applyTrackingResult(result, pin: pin);
     } catch (e) {
-      setState(() => _status = 'Lookup failed: $e');
+      var message = 'Unable to track document right now.';
+      if (e is FirebaseFunctionsException) {
+        if (e.code == 'permission-denied') {
+          message = 'Invalid PIN. Please try again.';
+        } else if (e.code == 'resource-exhausted') {
+          message = e.message ?? 'Too many failed attempts. Try again later.';
+        } else if (e.code == 'not-found') {
+          message = 'Document not found.';
+        } else {
+          message = e.message ?? message;
+        }
+      }
+      setState(() => _status = message);
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _trackByQrCode(String qrCode) async {
+    if (_loading) return;
+    final pin = _pin.text.trim();
+    if (pin.isEmpty) {
+      setState(() => _status = 'Enter PIN first, then scan/upload QR.');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _status = 'Checking QR...';
+      _saveStatus = '';
+      _savedToAccount = false;
+      _result = null;
+    });
+    try {
+      final result = await _repo.trackByQrAndPin(qrCode: qrCode, pin: pin);
+      _applyTrackingResult(result, pin: pin);
+    } catch (e) {
+      var message = 'Unable to track document from QR right now.';
+      if (e is FirebaseFunctionsException) {
+        if (e.code == 'permission-denied') {
+          message = 'Invalid PIN. Please try again.';
+        } else if (e.code == 'resource-exhausted') {
+          message = e.message ?? 'Too many failed attempts. Try again later.';
+        } else if (e.code == 'not-found') {
+          message = 'Document not found for this QR.';
+        } else {
+          message = e.message ?? message;
+        }
+      }
+      setState(() => _status = message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _scanQrWithCamera() async {
+    final value = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _ResidentQrScannerPage()),
+    );
+    if (!mounted || value == null || value.trim().isEmpty) return;
+    final scanned = value.trim();
+    if (scanned.toUpperCase().startsWith('DTS-QR-')) {
+      await _trackByQrCode(scanned);
+      return;
+    }
+    _trackingNo.text = scanned;
+    await _submit();
+  }
+
+  Future<void> _uploadQrImage() async {
+    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    try {
+      final capture = await _imageAnalyzer.analyzeImage(picked.path);
+      if (!mounted) return;
+      if (capture == null || capture.barcodes.isEmpty) {
+        setState(() => _status = 'No QR found in selected image.');
+        return;
+      }
+      final barcode = capture.barcodes.first;
+      final raw = (barcode.rawValue ?? barcode.displayValue ?? '').trim();
+      if (raw.isEmpty) {
+        setState(() => _status = 'No QR found in selected image.');
+        return;
+      }
+      if (raw.toUpperCase().startsWith('DTS-QR-')) {
+        await _trackByQrCode(raw);
+        return;
+      }
+      _trackingNo.text = raw;
+      await _submit();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = 'Unable to read QR image: $e');
     }
   }
 
@@ -78,9 +187,20 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
     }
     final trackingNo = _lastTrackingNo ?? _trackingNo.text.trim();
     final pin = _lastPin ?? _pin.text.trim();
-    if (trackingNo.isEmpty || pin.isEmpty) {
+    if (trackingNo.isEmpty) {
       setState(() {
-        _saveStatus = 'Tracking number and PIN are required.';
+        _saveStatus = 'Tracking number is required.';
+      });
+      return;
+    }
+    final hasValidSession =
+        _sessionToken != null &&
+        _sessionToken!.trim().isNotEmpty &&
+        _sessionExpiresAt != null &&
+        _sessionExpiresAt!.isAfter(DateTime.now());
+    if (!hasValidSession && pin.isEmpty) {
+      setState(() {
+        _saveStatus = 'PIN is required because tracking session expired.';
       });
       return;
     }
@@ -93,7 +213,8 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
     try {
       await _repo.saveTrackedDocumentToAccount(
         trackingNo: trackingNo,
-        pin: pin,
+        pin: hasValidSession ? null : pin,
+        sessionToken: hasValidSession ? _sessionToken : null,
       );
       setState(() {
         _savedToAccount = true;
@@ -117,6 +238,34 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
       });
     } finally {
       setState(() => _savingToAccount = false);
+    }
+  }
+
+  Future<void> _refreshUsingSession() async {
+    final token = _sessionToken;
+    if (token == null || token.trim().isEmpty) {
+      setState(() => _status = 'Tracking session expired. Re-enter PIN.');
+      return;
+    }
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _status = 'Refreshing...';
+    });
+    try {
+      final refreshed = await _repo.trackBySessionToken(sessionToken: token);
+      setState(() {
+        _result = refreshed;
+        _sessionToken = refreshed.sessionToken;
+        _sessionExpiresAt = refreshed.sessionExpiresAt;
+        _status = '';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Session expired. Please re-enter tracking PIN.';
+      });
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
@@ -183,6 +332,33 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
               decoration: _inputDecoration(context, 'PIN', Icons.lock_outline),
             ),
             const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _loading ? null : _scanQrWithCamera,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Scan QR'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _loading ? null : _uploadQrImage,
+                    icon: const Icon(Icons.image_search),
+                    label: const Text('Upload QR'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Security: QR scan/upload still requires PIN verification.',
+              style: textTheme.bodySmall?.copyWith(
+                color: scheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               height: 48,
               child: FilledButton(
@@ -217,6 +393,15 @@ class _DtsTrackDocumentScreenState extends State<DtsTrackDocumentScreen> {
             if (_result != null) ...[
               const SizedBox(height: 16),
               _TrackingResultCard(result: _result!),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _loading ? null : _refreshUsingSession,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh using secure token'),
+                ),
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 height: 46,
@@ -298,6 +483,15 @@ class _TrackingResultCard extends StatelessWidget {
                 color: scheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
+          if (result.lastUpdated != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Last updated: ${formatManilaDateTime(result.lastUpdated!, includeZone: true)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
           if (result.instructions != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -335,6 +529,71 @@ class _StatusChip extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _ResidentQrScannerPage extends StatefulWidget {
+  const _ResidentQrScannerPage();
+
+  @override
+  State<_ResidentQrScannerPage> createState() => _ResidentQrScannerPageState();
+}
+
+class _ResidentQrScannerPageState extends State<_ResidentQrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
+  bool _detected = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Scan QR'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_detected || capture.barcodes.isEmpty) return;
+              final barcode = capture.barcodes.first;
+              final value = (barcode.rawValue ?? barcode.displayValue ?? '')
+                  .trim();
+              if (value.isEmpty) return;
+              _detected = true;
+              Navigator.of(context).pop(value);
+            },
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Align the DTS QR sticker within the frame.',
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

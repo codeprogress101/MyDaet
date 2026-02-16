@@ -102,7 +102,10 @@ class _DtsInitiateTransferScreenState extends State<DtsInitiateTransferScreen> {
       Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        setState(() => _status = 'Failed: $e');
+        final message = e is DtsQueuedActionException
+            ? e.message
+            : 'Failed: $e';
+        setState(() => _status = message);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -152,7 +155,7 @@ class _DtsInitiateTransferScreenState extends State<DtsInitiateTransferScreen> {
                   const Center(child: CircularProgressIndicator())
                 else
                   DropdownButtonFormField<String>(
-                    value: _selectedOfficeId,
+                    initialValue: _selectedOfficeId,
                     items: _offices
                         .map(
                           (o) => DropdownMenuItem(
@@ -201,7 +204,7 @@ class _DtsInitiateTransferScreenState extends State<DtsInitiateTransferScreen> {
                         );
                       }
                       return DropdownButtonFormField<String>(
-                        value: _selectedRecipient?.uid,
+                        initialValue: _selectedRecipient?.uid,
                         items: users
                             .map(
                               (u) => DropdownMenuItem(

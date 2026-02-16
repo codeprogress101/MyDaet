@@ -6,6 +6,8 @@
 		<string>We use your location to tag reports for faster response.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>We use the camera to attach photos to reports.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>We use the microphone when recording video attachments for reports.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We use your gallery to attach photos to reports.</string>
 		<key>CFBundleDevelopmentRegion</key>

@@ -843,7 +843,7 @@ class _FullScreenImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Stack(
           children: [
@@ -854,12 +854,12 @@ class _FullScreenImage extends StatelessWidget {
                     url,
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) =>
-                        Icon(Icons.broken_image, color: scheme.onBackground),
+                        Icon(Icons.broken_image, color: scheme.onSurface),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
                       return Center(
                         child: CircularProgressIndicator(
-                          color: scheme.onBackground,
+                          color: scheme.onSurface,
                         ),
                       );
                     },
@@ -872,7 +872,7 @@ class _FullScreenImage extends StatelessWidget {
               left: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(Icons.close, color: scheme.onBackground),
+                icon: Icon(Icons.close, color: scheme.onSurface),
               ),
             ),
           ],

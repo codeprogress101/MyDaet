@@ -36,13 +36,13 @@ class _AccountPalette {
   factory _AccountPalette.fromScheme(ColorScheme scheme) {
     final onSurface = scheme.onSurface;
     return _AccountPalette(
-      bg: scheme.background,
+      bg: scheme.surface,
       card: scheme.surface,
       border: scheme.outlineVariant,
       title: onSurface,
       body: onSurface,
       subtitle: onSurface.withValues(alpha: 0.65),
-      iconBg: scheme.surfaceVariant,
+      iconBg: scheme.surfaceContainerHighest,
       iconFg: onSurface,
       sectionTitle: onSurface,
     );

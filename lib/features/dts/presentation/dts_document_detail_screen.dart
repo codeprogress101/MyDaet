@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/user_context_service.dart';
 import '../../../services/permissions.dart';
@@ -61,6 +62,24 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
   void initState() {
     super.initState();
     _contextFuture = _userContextService.getCurrent();
+    _repo.flushOfflineQueue();
+  }
+
+  void _showActionMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showActionError(Object error, {required String fallback}) {
+    if (!mounted) return;
+    final message = error is DtsQueuedActionException
+        ? error.message
+        : '$fallback: $error';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool _canReceiveTransfer(
@@ -125,17 +144,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         toOfficeName: userContext.officeName ?? 'Office',
         receiverUid: userContext.uid,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Receipt confirmed.')));
-      }
+      _showActionMessage('Receipt confirmed.');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
+      _showActionError(e, fallback: 'Failed to confirm receipt');
     }
   }
 
@@ -173,17 +184,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         fallbackOfficeName:
             doc.currentOfficeName ?? userContext.officeName ?? 'Office',
       );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Transfer cancelled.')));
-      }
+      _showActionMessage('Transfer cancelled.');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
+      _showActionError(e, fallback: 'Failed to cancel transfer');
     }
   }
 
@@ -214,17 +217,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         actorUid: userContext.uid,
         actorName: actorName,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Status updated.')));
-      }
+      _showActionMessage('Status updated.');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
-      }
+      _showActionError(e, fallback: 'Update failed');
     }
   }
 
@@ -249,15 +244,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         notes: result.notes,
         attachments: result.attachments,
       );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Note added.')));
+      _showActionMessage('Note added.');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to add note: $e')));
+      _showActionError(e, fallback: 'Failed to add note');
     }
   }
 
@@ -287,15 +276,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         reason: result.notes,
         attachments: result.attachments,
       );
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Transfer rejected.')));
+      _showActionMessage('Transfer rejected.');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to reject transfer: $e')));
+      _showActionError(e, fallback: 'Failed to reject transfer');
     }
   }
 
@@ -305,6 +288,43 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
         builder: (_) => DtsInitiateTransferScreen(document: doc),
       ),
     );
+  }
+
+  Future<void> _removeFromMyDocuments(DtsDocument doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove document?'),
+        content: const Text(
+          'This will remove the document from your My Documents list.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _repo.unsaveTrackedDocumentFromAccount(docId: doc.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Removed from My Documents.')),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to remove: $e')));
+    }
   }
 
   @override
@@ -382,6 +402,11 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                   doc.trackingPin!.trim().isNotEmpty &&
                   ctx != null &&
                   (ctx.isStaff || doc.submittedByUid == ctx.uid);
+              final canRemoveFromAccount =
+                  ctx != null &&
+                  ctx.isResident &&
+                  doc.submittedByUid != null &&
+                  doc.submittedByUid == ctx.uid;
 
               return Scaffold(
                 backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -528,6 +553,14 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                             ),
                           ],
                         ),
+                    if (canRemoveFromAccount) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => _removeFromMyDocuments(doc),
+                        icon: const Icon(Icons.bookmark_remove_outlined),
+                        label: const Text('Remove from My Documents'),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     if (isStaff) ...[
                       Text(
@@ -561,7 +594,9 @@ class _DtsDocumentDetailScreenState extends State<DtsDocumentDetailScreen> {
                             children: events
                                 .map(
                                   (event) => _TimelineTile(
+                                    docId: doc.id,
                                     event: event,
+                                    repo: _repo,
                                     nameFuture: event.byName != null
                                         ? Future.value(event.byName)
                                         : event.byUid == null
@@ -794,9 +829,16 @@ class _MetaChip extends StatelessWidget {
 }
 
 class _TimelineTile extends StatelessWidget {
-  const _TimelineTile({required this.event, this.nameFuture});
+  const _TimelineTile({
+    required this.docId,
+    required this.event,
+    required this.repo,
+    this.nameFuture,
+  });
 
+  final String docId;
   final DtsTimelineEvent event;
+  final DtsRepository repo;
   final Future<String>? nameFuture;
 
   @override
@@ -867,12 +909,220 @@ class _TimelineTile extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (event.attachments.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: event.attachments
+                          .map(
+                            (attachment) => _TimelineAttachmentChip(
+                              docId: docId,
+                              eventId: event.id,
+                              attachment: attachment,
+                              repo: repo,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TimelineAttachmentChip extends StatelessWidget {
+  const _TimelineAttachmentChip({
+    required this.docId,
+    required this.eventId,
+    required this.attachment,
+    required this.repo,
+  });
+
+  final String docId;
+  final String eventId;
+  final Map<String, dynamic> attachment;
+  final DtsRepository repo;
+
+  IconData _iconForAttachment() {
+    final contentType = (attachment['contentType'] ?? '')
+        .toString()
+        .toLowerCase();
+    final name = (attachment['name'] ?? '').toString().toLowerCase();
+    if (contentType.startsWith('image/') ||
+        name.endsWith('.png') ||
+        name.endsWith('.jpg') ||
+        name.endsWith('.jpeg') ||
+        name.endsWith('.webp')) {
+      return Icons.image_outlined;
+    }
+    if (contentType.contains('pdf') || name.endsWith('.pdf')) {
+      return Icons.picture_as_pdf_outlined;
+    }
+    if (name.endsWith('.doc') ||
+        name.endsWith('.docx') ||
+        name.endsWith('.txt')) {
+      return Icons.description_outlined;
+    }
+    return Icons.attach_file;
+  }
+
+  Future<void> _openAttachment(
+    BuildContext context, {
+    required String action,
+    required String url,
+    required String name,
+  }) async {
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    try {
+      await repo.auditAttachmentAccess(
+        docId: docId,
+        eventId: eventId,
+        attachmentName: name,
+        attachmentPath: (attachment['path'] ?? '').toString(),
+        attachmentUrl: url,
+        action: action,
+      );
+    } catch (_) {
+      // Do not block access if audit logging fails.
+    }
+
+    if (action == 'preview') {
+      final canInlineImage = _iconForAttachment() == Icons.image_outlined;
+      if (canInlineImage) {
+        if (!context.mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) {
+            return Dialog(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(dialogContext).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 360),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) =>
+                            const Text('Unable to preview image.'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        return;
+      }
+    }
+
+    if (!await canLaunchUrl(uri)) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _showActions(
+    BuildContext context,
+    String url,
+    String name,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.open_in_new),
+                title: const Text('Open'),
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await _openAttachment(
+                    context,
+                    action: 'open',
+                    url: url,
+                    name: name,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.visibility_outlined),
+                title: const Text('Preview'),
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await _openAttachment(
+                    context,
+                    action: 'preview',
+                    url: url,
+                    name: name,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('Download'),
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await _openAttachment(
+                    context,
+                    action: 'download',
+                    url: url,
+                    name: name,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = (attachment['name'] ?? 'Attachment').toString().trim();
+    final url = (attachment['url'] ?? '').toString().trim();
+    return ActionChip(
+      avatar: Icon(_iconForAttachment(), size: 16),
+      label: Text(
+        name.isEmpty ? 'Attachment' : name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onPressed: url.isEmpty
+          ? null
+          : () =>
+                _showActions(context, url, name.isEmpty ? 'Attachment' : name),
+      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+      backgroundColor: scheme.surface,
     );
   }
 }

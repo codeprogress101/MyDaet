@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/permissions.dart';
 import '../../../services/user_context_service.dart';
+import '../../shared/timezone_utils.dart';
 import '../data/dts_repository.dart';
 
 class DtsQrManagementScreen extends StatefulWidget {
@@ -470,8 +471,7 @@ Widget _chip(
 
 String _formatTimestamp(dynamic raw) {
   if (raw is Timestamp) {
-    final dt = raw.toDate();
-    return dt.toIso8601String();
+    return formatManilaDateTime(raw.toDate(), includeZone: true);
   }
-  return '';
+  return 'N/A';
 }

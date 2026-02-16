@@ -364,16 +364,22 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
         docId: result.docId,
         file: _coverPhoto!,
       );
-      await _repo.updateCoverPhoto(
-        docId: result.docId,
-        coverPhoto: cover,
-        actorUid: userContext.uid,
-      );
+      var coverQueued = false;
+      try {
+        await _repo.updateCoverPhoto(
+          docId: result.docId,
+          coverPhoto: cover,
+          actorUid: userContext.uid,
+        );
+      } on DtsQueuedActionException {
+        coverQueued = true;
+      }
 
       if (!mounted) return;
       await _showSuccess(
         result,
         _saveToResidentAccount && residentUid.isNotEmpty,
+        coverQueued,
       );
     } catch (e) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -392,6 +398,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
   Future<void> _showSuccess(
     DtsCreateResult result,
     bool savedToResident,
+    bool coverQueued,
   ) async {
     await showDialog<void>(
       context: context,
@@ -405,6 +412,12 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
               Text('Tracking No: ${result.trackingNo}'),
               const SizedBox(height: 6),
               Text('PIN: ${result.pin}'),
+              if (coverQueued) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Cover photo update was queued and will sync when online.',
+                ),
+              ],
               const SizedBox(height: 12),
               const Text(
                 'Write the tracking number and PIN on the acknowledgment stub.',
@@ -516,7 +529,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _docType,
+                  initialValue: _docType,
                   items: _docTypes
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
@@ -541,7 +554,7 @@ class _DtsCreateDocumentScreenState extends State<DtsCreateDocumentScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _confidentiality,
+                  initialValue: _confidentiality,
                   items: _confidentialities
                       .map(
                         (c) => DropdownMenuItem(
